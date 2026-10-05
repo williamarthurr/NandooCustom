@@ -23,6 +23,46 @@
             width: 100%;
             height: 100%;
         }
+
+        .tech-support {
+            position: fixed;
+            right: 20px;
+            bottom: 16px;
+            z-index: 10;
+            max-width: calc(100vw - 32px);
+            padding: 10px 14px;
+            border: 1px solid rgba(203, 213, 225, 0.9);
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.9);
+            color: #475569;
+            font-size: 12px;
+            line-height: 1.6;
+            box-shadow: 0 4px 14px rgba(15, 23, 42, 0.08);
+            backdrop-filter: blur(8px);
+        }
+
+        .tech-support-title {
+            margin-bottom: 2px;
+            color: #1e293b;
+            font-weight: 700;
+        }
+
+        .tech-support a {
+            color: #2563eb;
+            text-decoration: none;
+        }
+
+        .tech-support a:hover {
+            text-decoration: underline;
+        }
+
+        @media (max-width: 480px) {
+            .tech-support {
+                right: 10px;
+                bottom: 10px;
+                padding: 8px 10px;
+            }
+        }
     </style>
 </head>
 <body class="login-page flex items-center justify-center min-h-screen">
@@ -59,6 +99,11 @@
         </form>
     </div>
 
+    <aside class="tech-support" aria-label="Informasi Tech Support">
+        <div class="tech-support-title">Tech Support</div>
+        <div>Whatsapp: <a href="https://wa.me/6281388183368" target="_blank" rel="noopener noreferrer">0813-8818-3368 (Fernando)</a></div>
+        <div>Email: <a href="mailto:itfernandoo@gmail.com">itfernandoo@gmail.com</a></div>
+    </aside>
 
     
     <!-- Script Integrasi API -->
