@@ -45,8 +45,8 @@ function initializeDashboard() {
 
     // Mendeteksi tab yang dipilih dari URL query parameter ?tab=
     const urlParams = new URLSearchParams(window.location.search);
-    const currentTab = urlParams.get('tab') || 'pos';
-    switchTab(currentTab);
+    const currentTab = urlParams.get('tab');
+    if (currentTab) switchTab(currentTab);
 }
 
 // Event listener Logout
