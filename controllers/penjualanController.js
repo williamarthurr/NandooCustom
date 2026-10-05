@@ -116,6 +116,26 @@ exports.updatePenjualan = async (req, res) => {
     }
 };
 
+exports.setPenjualanStatus = async (req, res) => {
+    const noPenjualan = req.params.noPenjualan;
+    const { status } = req.body || {};
+    if (!noPenjualan.trim() || noPenjualan.length > 50) {
+        return res.status(400).json({ error: 'Nomor penjualan tidak valid.' });
+    }
+    if (!['Pending', 'Confirmed'].includes(status)) {
+        return res.status(400).json({ error: 'Status penjualan tidak valid.' });
+    }
+
+    try {
+        const data = await Sales.setStatus(noPenjualan, status);
+        res.json({ status: 'Success', data });
+    } catch (err) {
+        if (err.statusCode) return res.status(err.statusCode).json({ error: err.message });
+        console.error('Gagal mengubah status penjualan:', err);
+        res.status(500).json({ error: 'Gagal mengubah status penjualan.' });
+    }
+};
+
 exports.deletePenjualan = async (req, res) => {
     if (!req.params.noPenjualan.trim() || req.params.noPenjualan.length > 50) {
         return res.status(400).json({ error: 'Nomor penjualan tidak valid.' });

@@ -3,6 +3,9 @@
 // ==========================================
 
 let editingStockInNumber = null;
+let editingStockInStatus = null;
+let editingStockInCanEdit = false;
+let editingStockInCanRevert = false;
 
 async function fetchStockIn() {
     try {
@@ -19,7 +22,7 @@ async function fetchStockIn() {
         if (!result.data.length) {
             const row = document.createElement('tr');
             const cell = document.createElement('td');
-            cell.colSpan = 2;
+            cell.colSpan = 3;
             cell.className = 'p-4 text-center text-gray-400';
             cell.textContent = 'Belum ada transaksi stok in.';
             row.appendChild(cell);
@@ -35,7 +38,15 @@ async function fetchStockIn() {
                 const dateCell = document.createElement('td');
                 dateCell.className = 'p-3';
                 dateCell.textContent = formatStockInDate(item.tanggal);
-                row.append(numberCell, dateCell);
+                const statusCell = document.createElement('td');
+                statusCell.className = 'p-3';
+                const statusBadge = document.createElement('span');
+                statusBadge.className = item.status === 'Confirmed'
+                    ? 'rounded-full bg-green-100 px-2.5 py-1 text-xs font-semibold text-green-700'
+                    : 'rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-700';
+                statusBadge.textContent = item.status === 'Confirmed' ? 'Dikonfirmasi' : 'Pending';
+                statusCell.appendChild(statusBadge);
+                row.append(numberCell, dateCell, statusCell);
                 tbody.appendChild(row);
             });
         }
@@ -50,12 +61,15 @@ async function openStockInCreate(stockIn = null) {
     const form = document.getElementById('formStockInCreate');
     if (form) form.reset();
     editingStockInNumber = stockIn?.no_stok_in || null;
+    editingStockInStatus = stockIn?.status || null;
+    editingStockInCanEdit = Boolean(stockIn?.can_edit);
+    editingStockInCanRevert = Boolean(stockIn?.can_revert);
     document.getElementById('stockInCreateTitle').textContent =
         editingStockInNumber ? 'Edit Stok In' : 'Tambah Stok In';
     document.getElementById('btnSaveStockIn').textContent =
         editingStockInNumber ? 'Simpan Perubahan' : 'Simpan Stok In';
-    document.getElementById('newStockInNumber').readOnly = Boolean(editingStockInNumber);
     document.getElementById('stockInCreateMessage').classList.add('hidden');
+    document.getElementById('stockInCreateStatus').classList.add('hidden');
     const today = new Date();
     document.getElementById('newStockInDate').value = [
         today.getFullYear(),
@@ -105,9 +119,15 @@ async function openStockInCreate(stockIn = null) {
         }
 
         document.getElementById('stockInCreateModal').classList.remove('hidden');
+        document.getElementById('stockInCreateModal').scrollTop = 0;
+        document.getElementById('formStockInCreate').scrollTop = 0;
+        const mainContent = document.getElementById('moduleContent').closest('main');
+        mainContent.classList.remove('z-10');
+        mainContent.classList.add('z-50');
         document.body.classList.add('overflow-hidden');
         if (!stockIn) addStockInItemRow();
-        document.getElementById('newStockInNumber').focus();
+        updateStockInCreateState();
+        document.getElementById('newStockInNumber').focus({ preventScroll: true });
     } catch (err) {
         console.error('Gagal membuka form stok in:', err);
         showStockInMessage(err.message);
@@ -118,11 +138,21 @@ function closeStockInCreate() {
     const modal = document.getElementById('stockInCreateModal');
     if (!modal || modal.classList.contains('hidden')) return;
     modal.classList.add('hidden');
+    const mainContent = document.getElementById('moduleContent').closest('main');
+    mainContent.classList.remove('z-50');
+    mainContent.classList.add('z-10');
     document.body.classList.remove('overflow-hidden');
     const form = document.getElementById('formStockInCreate');
     if (form) form.reset();
     editingStockInNumber = null;
+    editingStockInStatus = null;
+    editingStockInCanEdit = false;
+    editingStockInCanRevert = false;
     document.getElementById('newStockInNumber').readOnly = false;
+    document.getElementById('btnSaveStockIn').classList.remove('hidden');
+    document.getElementById('btnDeleteStockInCreate').classList.add('hidden');
+    document.getElementById('btnToggleStockInCreateStatus').classList.add('hidden');
+    document.getElementById('stockInCreateStatus').classList.add('hidden');
 }
 
 function addStockInItemRow() {
@@ -175,7 +205,7 @@ function addStockInItemRow() {
     actionCell.className = 'p-2';
     const removeButton = document.createElement('button');
     removeButton.type = 'button';
-    removeButton.className = 'rounded-lg bg-red-50 px-2.5 py-2 text-xs font-semibold text-red-600 hover:bg-red-100';
+    removeButton.className = 'stock-in-remove rounded-lg bg-red-50 px-2.5 py-2 text-xs font-semibold text-red-600 hover:bg-red-100';
     removeButton.textContent = 'Hapus';
     removeButton.addEventListener('click', () => {
         row.remove();
@@ -246,19 +276,127 @@ async function saveStockIn(event) {
         });
         const result = await res.json();
         if (!res.ok) throw new Error(result.error || 'Gagal menyimpan stok in.');
-        const wasEditing = Boolean(editingStockInNumber);
-        closeStockInCreate();
+        editingStockInNumber = result.data.no_stok_in;
+        editingStockInStatus = 'Pending';
+        editingStockInCanEdit = true;
+        editingStockInCanRevert = true;
+        updateStockInCreateState();
         await fetchStockIn();
-        showStockInMessage(
-            wasEditing ? 'Transaksi stok in berhasil diperbarui.' : 'Transaksi stok in berhasil ditambahkan.',
-            true
-        );
+        showStockInCreateMessage('');
     } catch (err) {
         console.error('Gagal menyimpan stok in:', err);
         message.textContent = err.message;
         message.classList.remove('hidden');
     } finally {
         button.disabled = false;
+    }
+}
+
+function updateStockInCreateState() {
+    const isSaved = Boolean(editingStockInNumber);
+    const isPending = editingStockInStatus === 'Pending';
+    const canEdit = editingStockInCanEdit;
+    const saveButton = document.getElementById('btnSaveStockIn');
+    const deleteButton = document.getElementById('btnDeleteStockInCreate');
+    const statusButton = document.getElementById('btnToggleStockInCreateStatus');
+    const statusMessage = document.getElementById('stockInCreateStatus');
+    const form = document.getElementById('formStockInCreate');
+    const isEditable = !isSaved || (isPending && canEdit);
+
+    document.getElementById('newStockInNumber').readOnly = isSaved;
+    saveButton.textContent = isSaved ? 'Simpan Perubahan' : 'Simpan Stok In';
+    form.querySelectorAll('input, select').forEach(input => {
+        if (input.id !== 'newStockInNumber') input.disabled = !isEditable;
+    });
+    document.getElementById('btnAddStockInItem').disabled = !isEditable;
+    form.querySelectorAll('.stock-in-remove').forEach(button => {
+        button.disabled = !isEditable;
+    });
+    saveButton.classList.toggle('hidden', isSaved && !isEditable);
+    deleteButton.classList.toggle('hidden', !isSaved || !isPending || !canEdit);
+    statusButton.textContent = isPending ? 'Konfirmasi Stok In' : 'Kembalikan ke Pending';
+    statusButton.className = isPending
+        ? 'rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700'
+        : 'rounded-lg border border-amber-300 px-4 py-2 text-sm font-semibold text-amber-700 hover:bg-amber-50';
+    statusButton.classList.toggle('hidden', !isSaved || (!isPending && !editingStockInCanRevert));
+    statusMessage.textContent = isSaved
+        ? isPending
+            ? canEdit
+                ? 'Status: Pending'
+                : 'Draft penjualan memakai stok ini; hapus draft penjualan sebelum mengedit atau menghapus stok in.'
+            : editingStockInCanRevert
+                ? 'Status: Dikonfirmasi — stok sudah bertambah.'
+                : 'Stok ini sudah dipakai penjualan terkonfirmasi dan tidak bisa dikembalikan ke Pending.'
+        : '';
+    statusMessage.className = `text-sm font-semibold ${
+        isPending ? 'text-amber-700' : 'text-green-700'
+    }`;
+    statusMessage.classList.toggle('hidden', !isSaved);
+    statusButton.onclick = () => setStockInCreateStatus(isPending ? 'Confirmed' : 'Pending');
+    deleteButton.onclick = () => deleteStockInCreateDraft();
+}
+
+function showStockInCreateMessage(message, success = false) {
+    const element = document.getElementById('stockInCreateMessage');
+    element.textContent = message;
+    element.classList.toggle('hidden', !message);
+    element.classList.toggle('text-green-700', success);
+    element.classList.toggle('text-red-600', Boolean(message) && !success);
+}
+
+async function setStockInCreateStatus(status) {
+    const action = status === 'Confirmed' ? 'mengonfirmasi' : 'mengembalikan ke Pending';
+    if (!window.confirm(`Yakin ${action} stok in ${editingStockInNumber}?`)) return;
+    const statusButton = document.getElementById('btnToggleStockInCreateStatus');
+    statusButton.disabled = true;
+    try {
+        const res = await fetch(`${API_URL}/stokin/${encodeURIComponent(editingStockInNumber)}/status`, {
+            method: 'PATCH',
+            headers: {
+                Authorization: 'Bearer ' + token,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ status })
+        });
+        const result = await res.json();
+        if (!res.ok) throw new Error(result.error || 'Gagal mengubah status stok in.');
+
+        const detailResponse = await fetch(
+            `${API_URL}/stokin/${encodeURIComponent(editingStockInNumber)}`,
+            { headers: { Authorization: 'Bearer ' + token } }
+        );
+        const detailResult = await detailResponse.json();
+        if (!detailResponse.ok) throw new Error(detailResult.error || 'Gagal memuat status stok in terbaru.');
+        editingStockInStatus = detailResult.data.status;
+        editingStockInCanEdit = Boolean(detailResult.data.can_edit);
+        editingStockInCanRevert = Boolean(detailResult.data.can_revert);
+        updateStockInCreateState();
+        await fetchStockIn();
+        showStockInCreateMessage(`Stok in berhasil diubah menjadi ${status}.`, true);
+    } catch (err) {
+        console.error('Gagal mengubah status stok in:', err);
+        showStockInCreateMessage(err.message);
+    } finally {
+        statusButton.disabled = false;
+    }
+}
+
+async function deleteStockInCreateDraft() {
+    if (!window.confirm(`Hapus draft stok in ${editingStockInNumber}?`)) return;
+    try {
+        const res = await fetch(`${API_URL}/stokin/${encodeURIComponent(editingStockInNumber)}`, {
+            method: 'DELETE',
+            headers: { Authorization: 'Bearer ' + token }
+        });
+        const result = await res.json();
+        if (!res.ok) throw new Error(result.error || 'Gagal menghapus draft stok in.');
+        const number = editingStockInNumber;
+        closeStockInCreate();
+        await fetchStockIn();
+        showStockInMessage(`Draft stok in ${number} berhasil dihapus.`, true);
+    } catch (err) {
+        console.error('Gagal menghapus draft stok in:', err);
+        showStockInCreateMessage(err.message);
     }
 }
 
@@ -271,11 +409,18 @@ async function showStockInDetail(noStokIn) {
         if (!res.ok) throw new Error(result.error || 'Gagal mengambil detail stok in.');
 
         const stockIn = result.data;
+        const detailMessage = document.getElementById('stockInDetailMessage');
+        detailMessage.textContent = '';
+        detailMessage.classList.add('hidden');
         document.getElementById('stockInDetailTitle').textContent = `Detail Stok In`;
         document.getElementById('stockInDetailSubtitle').textContent = formatStockInDate(stockIn.tanggal);
         document.getElementById('stockInDetailNumber').textContent = stockIn.no_stok_in;
         document.getElementById('stockInDetailSupplier').textContent =
             stockIn.nama_supplier || stockIn.kode_supplier || '-';
+        const isPending = stockIn.status === 'Pending';
+        const statusElement = document.getElementById('stockInDetailStatus');
+        statusElement.textContent = isPending ? 'Pending' : 'Dikonfirmasi';
+        statusElement.className = `mt-1 font-semibold ${isPending ? 'text-amber-700' : 'text-green-700'}`;
         document.getElementById('stockInDetailTotal').textContent =
             `Rp ${Number(stockIn.grand_total || 0).toLocaleString('id-ID')}`;
 
@@ -309,21 +454,61 @@ async function showStockInDetail(noStokIn) {
             });
         }
         const canEdit = Boolean(stockIn.can_edit);
+        const canRevert = Boolean(stockIn.can_revert);
         const actions = document.getElementById('stockInDetailActions');
-        actions.classList.toggle('hidden', !canEdit);
+        actions.classList.toggle('hidden', isPending ? false : !canRevert);
+        document.getElementById('btnEditStockIn').classList.toggle('hidden', !isPending || !canEdit);
+        document.getElementById('btnDeleteStockIn').classList.toggle('hidden', !isPending || !canEdit);
+        const statusButton = document.getElementById('btnToggleStockInStatus');
+        statusButton.textContent = isPending ? 'Konfirmasi Stok In' : 'Pending';
+        statusButton.className = isPending
+            ? 'rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700'
+            : 'rounded-lg border border-amber-300 px-4 py-2 text-sm font-semibold text-amber-700 hover:bg-amber-50';
+        statusButton.classList.toggle('hidden', isPending ? false : !canRevert);
         const lockMessage = document.getElementById('stockInDetailLockMessage');
-        lockMessage.textContent = canEdit
-            ? ''
-            : 'Stok in ini tidak dapat diedit atau dihapus karena sudah terkait dengan penjualan.';
-        lockMessage.classList.toggle('hidden', canEdit);
+        lockMessage.textContent = !canRevert
+            ? 'Stok in ini sudah digunakan dalam penjualan terkonfirmasi sehingga tidak dapat dikembalikan ke Pending.'
+            : !canEdit
+                ? 'Stok in ini digunakan dalam draft penjualan; edit atau hapus draft penjualan tersebut terlebih dahulu.'
+                : '';
+        lockMessage.classList.toggle('hidden', canRevert && canEdit);
         document.getElementById('btnEditStockIn').onclick = () => editStockIn(noStokIn);
         document.getElementById('btnDeleteStockIn').onclick = () => deleteStockIn(noStokIn);
+        statusButton.onclick = () => setStockInStatus(noStokIn, isPending ? 'Confirmed' : 'Pending');
         document.getElementById('stockInDetailModal').classList.remove('hidden');
         document.body.classList.add('overflow-hidden');
         showStockInMessage('');
     } catch (err) {
         console.error('Gagal load detail stok in:', err);
         showStockInMessage(err.message);
+    }
+}
+
+async function setStockInStatus(noStokIn, status) {
+    const action = status === 'Confirmed' ? 'mengonfirmasi' : 'mengembalikan ke Pending';
+    if (!window.confirm(`Yakin ${action} stok in ${noStokIn}?`)) return;
+    try {
+        const res = await fetch(`${API_URL}/stokin/${encodeURIComponent(noStokIn)}/status`, {
+            method: 'PATCH',
+            headers: {
+                Authorization: 'Bearer ' + token,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ status })
+        });
+        const result = await res.json();
+        if (!res.ok) throw new Error(result.error || 'Gagal mengubah status stok in.');
+        await fetchStockIn();
+        await showStockInDetail(noStokIn);
+        showStockInMessage(
+            `Stok in ${noStokIn} berhasil diubah menjadi ${status}.`,
+            true
+        );
+    } catch (err) {
+        console.error('Gagal mengubah status stok in:', err);
+        const detailMessage = document.getElementById('stockInDetailMessage');
+        detailMessage.textContent = err.message;
+        detailMessage.classList.remove('hidden');
     }
 }
 
@@ -346,7 +531,7 @@ async function editStockIn(noStokIn) {
 }
 
 async function deleteStockIn(noStokIn) {
-    if (!window.confirm(`Hapus stok in ${noStokIn}? Stok barang akan dikurangi.`)) return;
+    if (!window.confirm(`Hapus stok in ${noStokIn}?`)) return;
     try {
         const res = await fetch(`${API_URL}/stokin/${encodeURIComponent(noStokIn)}`, {
             method: 'DELETE',

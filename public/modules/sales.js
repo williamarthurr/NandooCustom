@@ -3,6 +3,7 @@
 // ==========================================
 
 let editingSaleNumber = null;
+let editingSaleStatus = null;
 
 async function fetchSales() {
     try {
@@ -19,7 +20,7 @@ async function fetchSales() {
         if (!result.data.length) {
             const row = document.createElement('tr');
             const cell = document.createElement('td');
-            cell.colSpan = 2;
+            cell.colSpan = 3;
             cell.className = 'p-4 text-center text-gray-400';
             cell.textContent = 'Belum ada transaksi penjualan.';
             row.appendChild(cell);
@@ -35,7 +36,15 @@ async function fetchSales() {
                 const dateCell = document.createElement('td');
                 dateCell.className = 'p-3';
                 dateCell.textContent = formatStockInDate(sale.tanggal);
-                row.append(numberCell, dateCell);
+                const statusCell = document.createElement('td');
+                statusCell.className = 'p-3';
+                const statusBadge = document.createElement('span');
+                statusBadge.className = sale.status === 'Confirmed'
+                    ? 'rounded-full bg-green-100 px-2.5 py-1 text-xs font-semibold text-green-700'
+                    : 'rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-700';
+                statusBadge.textContent = sale.status === 'Confirmed' ? 'Dikonfirmasi' : 'Pending';
+                statusCell.appendChild(statusBadge);
+                row.append(numberCell, dateCell, statusCell);
                 tbody.appendChild(row);
             });
         }
@@ -55,10 +64,17 @@ async function showSalesDetail(noPenjualan) {
         if (!res.ok) throw new Error(result.error || 'Gagal mengambil detail penjualan.');
 
         const sale = result.data;
+        const detailMessage = document.getElementById('salesDetailMessage');
+        detailMessage.textContent = '';
+        detailMessage.classList.add('hidden');
         document.getElementById('salesDetailSubtitle').textContent = formatStockInDate(sale.tanggal);
         document.getElementById('salesDetailNumber').textContent = sale.no_penjualan;
         document.getElementById('salesDetailCustomer').textContent =
             sale.nama_pelanggan || sale.kode_pelanggan || '-';
+        const isPending = sale.status === 'Pending';
+        const statusElement = document.getElementById('salesDetailStatus');
+        statusElement.textContent = isPending ? 'Pending' : 'Dikonfirmasi';
+        statusElement.className = `mt-1 font-semibold ${isPending ? 'text-amber-700' : 'text-green-700'}`;
         document.getElementById('salesDetailTotal').textContent =
             `Rp ${Number(sale.grand_total || 0).toLocaleString('id-ID')}`;
 
@@ -92,8 +108,16 @@ async function showSalesDetail(noPenjualan) {
                 tbody.appendChild(row);
             });
         }
+        document.getElementById('btnEditSale').classList.toggle('hidden', !isPending);
+        document.getElementById('btnDeleteSale').classList.toggle('hidden', !isPending);
+        const statusButton = document.getElementById('btnToggleSaleStatus');
+        statusButton.textContent = isPending ? 'Konfirmasi Penjualan' : 'Pending';
+        statusButton.className = isPending
+            ? 'rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700'
+            : 'rounded-lg border border-amber-300 px-4 py-2 text-sm font-semibold text-amber-700 hover:bg-amber-50';
         document.getElementById('btnEditSale').onclick = () => editSale(noPenjualan);
         document.getElementById('btnDeleteSale').onclick = () => deleteSale(noPenjualan);
+        statusButton.onclick = () => setSaleStatus(noPenjualan, isPending ? 'Confirmed' : 'Pending');
         document.getElementById('salesDetailModal').classList.remove('hidden');
         document.body.classList.add('overflow-hidden');
         showSalesMessage('');
@@ -103,8 +127,36 @@ async function showSalesDetail(noPenjualan) {
     }
 }
 
+async function setSaleStatus(noPenjualan, status) {
+    const action = status === 'Confirmed' ? 'mengonfirmasi' : 'mengembalikan ke Pending';
+    if (!window.confirm(`Yakin ${action} penjualan ${noPenjualan}?`)) return;
+    try {
+        const res = await fetch(`${API_URL}/penjualan/${encodeURIComponent(noPenjualan)}/status`, {
+            method: 'PATCH',
+            headers: {
+                Authorization: 'Bearer ' + token,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ status })
+        });
+        const result = await res.json();
+        if (!res.ok) throw new Error(result.error || 'Gagal mengubah status penjualan.');
+        await fetchSales();
+        await showSalesDetail(noPenjualan);
+        showSalesMessage(
+            `Penjualan ${noPenjualan} berhasil diubah menjadi ${status}.`,
+            true
+        );
+    } catch (err) {
+        console.error('Gagal mengubah status penjualan:', err);
+        const detailMessage = document.getElementById('salesDetailMessage');
+        detailMessage.textContent = err.message;
+        detailMessage.classList.remove('hidden');
+    }
+}
+
 async function deleteSale(noPenjualan) {
-    if (!window.confirm(`Hapus penjualan ${noPenjualan}? Qty barang akan dikembalikan ke stok.`)) return;
+    if (!window.confirm(`Hapus penjualan ${noPenjualan}?`)) return;
     try {
         const res = await fetch(`${API_URL}/penjualan/${encodeURIComponent(noPenjualan)}`, {
             method: 'DELETE',
@@ -114,7 +166,7 @@ async function deleteSale(noPenjualan) {
         if (!res.ok) throw new Error(result.error || 'Gagal menghapus penjualan.');
         closeSalesDetail();
         await fetchSales();
-        showSalesMessage(`Penjualan ${noPenjualan} berhasil dihapus dan stok sudah dikembalikan.`, true);
+        showSalesMessage(`Draft penjualan ${noPenjualan} berhasil dihapus.`, true);
     } catch (err) {
         console.error('Gagal menghapus penjualan:', err);
         showSalesMessage(err.message);
@@ -156,12 +208,14 @@ async function openSalesCreate(sale = null) {
     const form = document.getElementById('formSalesCreate');
     if (form) form.reset();
     editingSaleNumber = sale?.no_penjualan || null;
+    editingSaleStatus = sale?.status || null;
     document.getElementById('salesCreateTitle').textContent =
         editingSaleNumber ? 'Edit Penjualan' : 'Tambah Penjualan';
     document.getElementById('btnSaveSale').textContent =
         editingSaleNumber ? 'Simpan Perubahan' : 'Simpan Penjualan';
     document.getElementById('newSalesNumber').readOnly = Boolean(editingSaleNumber);
     document.getElementById('salesCreateMessage').classList.add('hidden');
+    document.getElementById('salesCreateStatus').classList.add('hidden');
     const today = new Date();
     document.getElementById('newSalesDate').value = [
         today.getFullYear(),
@@ -200,13 +254,19 @@ async function openSalesCreate(sale = null) {
             document.getElementById('newSalesCustomer').value = sale.kode_pelanggan || '';
         }
         document.getElementById('salesCreateModal').classList.remove('hidden');
+        document.getElementById('salesCreateModal').scrollTop = 0;
+        document.getElementById('formSalesCreate').scrollTop = 0;
+        const mainContent = document.getElementById('moduleContent').closest('main');
+        mainContent.classList.remove('z-10');
+        mainContent.classList.add('z-50');
         document.body.classList.add('overflow-hidden');
         if (sale) {
             for (const detail of sale.details) await addSalesItemRow(detail);
         } else {
             await addSalesItemRow();
         }
-        document.getElementById('newSalesNumber').focus();
+        updateSalesCreateState();
+        document.getElementById('newSalesNumber').focus({ preventScroll: true });
     } catch (err) {
         console.error('Gagal membuka form penjualan:', err);
         showSalesMessage(err.message);
@@ -217,11 +277,19 @@ function closeSalesCreate() {
     const modal = document.getElementById('salesCreateModal');
     if (!modal || modal.classList.contains('hidden')) return;
     modal.classList.add('hidden');
+    const mainContent = document.getElementById('moduleContent').closest('main');
+    mainContent.classList.remove('z-50');
+    mainContent.classList.add('z-10');
     document.body.classList.remove('overflow-hidden');
     const form = document.getElementById('formSalesCreate');
     if (form) form.reset();
     editingSaleNumber = null;
+    editingSaleStatus = null;
     document.getElementById('newSalesNumber').readOnly = false;
+    document.getElementById('btnSaveSale').classList.remove('hidden');
+    document.getElementById('btnDeleteSaleCreate').classList.add('hidden');
+    document.getElementById('btnToggleSaleCreateStatus').classList.add('hidden');
+    document.getElementById('salesCreateStatus').classList.add('hidden');
 }
 
 async function addSalesItemRow(initialItem = null) {
@@ -277,7 +345,7 @@ async function addSalesItemRow(initialItem = null) {
     actionCell.className = 'p-2';
     const removeButton = document.createElement('button');
     removeButton.type = 'button';
-    removeButton.className = 'rounded-lg bg-red-50 px-2.5 py-2 text-xs font-semibold text-red-600 hover:bg-red-100';
+    removeButton.className = 'sales-remove rounded-lg bg-red-50 px-2.5 py-2 text-xs font-semibold text-red-600 hover:bg-red-100';
     removeButton.textContent = 'Hapus';
     removeButton.addEventListener('click', () => {
         row.remove();
@@ -412,18 +480,108 @@ async function saveSale(event) {
         });
         const result = await res.json();
         if (!res.ok) throw new Error(result.error || 'Gagal menyimpan penjualan.');
-        const wasEditing = Boolean(editingSaleNumber);
-        closeSalesCreate();
+        editingSaleNumber = result.data.no_penjualan;
+        editingSaleStatus = 'Pending';
+        updateSalesCreateState();
         await fetchSales();
-        showSalesMessage(
-            wasEditing ? 'Transaksi penjualan berhasil diperbarui.' : 'Transaksi penjualan berhasil ditambahkan.',
-            true
-        );
+        showSalesCreateMessage('');
     } catch (err) {
         console.error('Gagal menyimpan penjualan:', err);
         message.textContent = err.message;
         message.classList.remove('hidden');
     } finally {
         button.disabled = false;
+    }
+}
+
+function updateSalesCreateState() {
+    const isSaved = Boolean(editingSaleNumber);
+    const isPending = editingSaleStatus === 'Pending';
+    const isEditable = !isSaved || isPending;
+    const saveButton = document.getElementById('btnSaveSale');
+    const deleteButton = document.getElementById('btnDeleteSaleCreate');
+    const statusButton = document.getElementById('btnToggleSaleCreateStatus');
+    const statusMessage = document.getElementById('salesCreateStatus');
+    const form = document.getElementById('formSalesCreate');
+
+    document.getElementById('newSalesNumber').readOnly = isSaved;
+    form.querySelectorAll('input, select').forEach(input => {
+        if (input.id !== 'newSalesNumber') input.disabled = !isEditable;
+    });
+    document.getElementById('btnAddSalesItem').disabled = !isEditable;
+    form.querySelectorAll('.sales-remove').forEach(button => {
+        button.disabled = !isEditable;
+    });
+    saveButton.textContent = isSaved ? 'Simpan Perubahan' : 'Simpan Penjualan';
+    saveButton.classList.toggle('hidden', isSaved && !isEditable);
+    deleteButton.classList.toggle('hidden', !isSaved || !isPending);
+    statusButton.textContent = isPending ? 'Konfirmasi Penjualan' : 'Pending';
+    statusButton.className = isPending
+        ? 'rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700'
+        : 'rounded-lg border border-amber-300 px-4 py-2 text-sm font-semibold text-amber-700 hover:bg-amber-50';
+    statusButton.classList.toggle('hidden', !isSaved);
+    statusMessage.textContent = !isSaved
+        ? ''
+        : isPending
+            ? 'Status: Pending'
+            : 'Status: Dikonfirmasi — stok sudah dikurangi.';
+    statusMessage.className = `text-sm font-semibold ${isPending ? 'text-amber-700' : 'text-green-700'}`;
+    statusMessage.classList.toggle('hidden', !isSaved);
+    statusButton.onclick = () => setSaleCreateStatus(isPending ? 'Confirmed' : 'Pending');
+    deleteButton.onclick = () => deleteSaleCreateDraft();
+}
+
+function showSalesCreateMessage(message, success = false) {
+    const element = document.getElementById('salesCreateMessage');
+    element.textContent = message;
+    element.classList.toggle('hidden', !message);
+    element.classList.toggle('text-green-700', success);
+    element.classList.toggle('text-red-600', Boolean(message) && !success);
+}
+
+async function setSaleCreateStatus(status) {
+    const action = status === 'Confirmed' ? 'mengonfirmasi' : 'mengembalikan ke Pending';
+    if (!window.confirm(`Yakin ${action} penjualan ${editingSaleNumber}?`)) return;
+    const statusButton = document.getElementById('btnToggleSaleCreateStatus');
+    statusButton.disabled = true;
+    try {
+        const res = await fetch(`${API_URL}/penjualan/${encodeURIComponent(editingSaleNumber)}/status`, {
+            method: 'PATCH',
+            headers: {
+                Authorization: 'Bearer ' + token,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ status })
+        });
+        const result = await res.json();
+        if (!res.ok) throw new Error(result.error || 'Gagal mengubah status penjualan.');
+        editingSaleStatus = result.data.status;
+        updateSalesCreateState();
+        await fetchSales();
+        showSalesCreateMessage(`Penjualan berhasil diubah menjadi ${status}.`, true);
+    } catch (err) {
+        console.error('Gagal mengubah status penjualan:', err);
+        showSalesCreateMessage(err.message);
+    } finally {
+        statusButton.disabled = false;
+    }
+}
+
+async function deleteSaleCreateDraft() {
+    if (!window.confirm(`Hapus draft penjualan ${editingSaleNumber}?`)) return;
+    try {
+        const res = await fetch(`${API_URL}/penjualan/${encodeURIComponent(editingSaleNumber)}`, {
+            method: 'DELETE',
+            headers: { Authorization: 'Bearer ' + token }
+        });
+        const result = await res.json();
+        if (!res.ok) throw new Error(result.error || 'Gagal menghapus draft penjualan.');
+        const number = editingSaleNumber;
+        closeSalesCreate();
+        await fetchSales();
+        showSalesMessage(`Draft penjualan ${number} berhasil dihapus.`, true);
+    } catch (err) {
+        console.error('Gagal menghapus draft penjualan:', err);
+        showSalesCreateMessage(err.message);
     }
 }

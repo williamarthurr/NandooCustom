@@ -152,27 +152,3 @@ function showInventoryMessage(message, success = false) {
     element.classList.toggle('text-green-700', success);
     element.classList.toggle('text-red-600', Boolean(message) && !success);
 }
-
-async function fetchInventoryLegacy() {
-    try {
-        const res = await fetch(`${API_URL}/inventory`, { headers: { Authorization: `Bearer ${token}` } });
-        const result = await res.json();
-        const items = result.data || result || [];
-        const tbody = document.getElementById('tblInventory');
-        if (!tbody) return;
-        tbody.innerHTML = items.map(i => `
-            <tr class="hover:bg-gray-50">
-                <td class="p-3">${i.id}</td>
-                <td class="p-3 font-medium">${i.nama_barang || i.nama}</td>
-                <td class="p-3 font-bold">${i.stok ?? 0}</td>
-                <td class="p-3">
-                    <span class="px-2 py-0.5 rounded text-xs font-semibold ${(i.stok ?? 0) < 5 ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'}">
-                        ${(i.stok ?? 0) < 5 ? 'Stok Kritis' : 'Aman'}
-                    </span>
-                </td>
-            </tr>
-        `).join('');
-    } catch (err) {
-        console.error("Gagal load inventory:", err);
-    }
-}

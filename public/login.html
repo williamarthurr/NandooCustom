@@ -15,29 +15,20 @@
                 linear-gradient(135deg, #f8fafc, #e2e8f0);
         }
 
-        .login-cursor-light {
+        .login-particles {
             position: fixed;
             inset: 0;
-            z-index: -1;
+            z-index: 0;
             pointer-events: none;
-            opacity: 0.9;
-            background:
-                radial-gradient(460px circle at var(--light-x, 50%) var(--light-y, 50%), rgba(96, 165, 250, 0.32), transparent 68%),
-                radial-gradient(620px circle at var(--light-x, 50%) var(--light-y, 50%), rgba(255, 255, 255, 0.82), transparent 72%);
-            transition: opacity 300ms ease;
-        }
-
-        @media (prefers-reduced-motion: reduce) {
-            .login-cursor-light {
-                transition: none;
-            }
+            width: 100%;
+            height: 100%;
         }
     </style>
 </head>
 <body class="login-page flex items-center justify-center min-h-screen">
-    <div id="loginCursorLight" class="login-cursor-light" aria-hidden="true"></div>
+    <canvas id="loginParticles" class="login-particles" aria-hidden="true"></canvas>
 
-    <div class="relative z-10 bg-white/90 backdrop-blur-sm p-8 rounded-xl shadow-lg w-full max-w-md border border-gray-200">
+    <div id="loginCard" class="relative z-10 bg-white/90 backdrop-blur-sm p-8 rounded-xl shadow-lg w-full max-w-md border border-gray-200">
         <!-- Header / Logo -->
         <div class="text-center mb-6">
             <h1 class="text-2xl font-bold text-gray-800">nandoApp</h1>
@@ -73,25 +64,152 @@
     <!-- Script Integrasi API -->
     <script>
         const API_URL = '/api';
-        const cursorLight = document.getElementById('loginCursorLight');
-        let cursorLightFrame = null;
+        const particleCanvas = document.getElementById('loginParticles');
+        const particleContext = particleCanvas.getContext('2d');
+        const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        const loginCard = document.getElementById('loginCard');
+        const particles = [];
+        const pointer = { x: -1000, y: -1000, active: false };
+        const particleColors = [
+            'rgba(96, 165, 250, 0.58)',
+            'rgba(129, 140, 248, 0.48)',
+            'rgba(148, 163, 184, 0.52)'
+        ];
+        let particleFrame = null;
 
-        document.addEventListener('pointermove', (event) => {
-            if (event.pointerType === 'touch' || cursorLightFrame !== null) return;
-            cursorLightFrame = requestAnimationFrame(() => {
-                cursorLight.style.setProperty('--light-x', `${event.clientX}px`);
-                cursorLight.style.setProperty('--light-y', `${event.clientY}px`);
-                cursorLightFrame = null;
-            });
+        function resizeParticleCanvas() {
+            const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+            particleCanvas.width = Math.round(window.innerWidth * pixelRatio);
+            particleCanvas.height = Math.round(window.innerHeight * pixelRatio);
+            particleContext.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+
+            const particleCount = Math.min(560, Math.max(180, Math.floor(window.innerWidth * window.innerHeight / 2400)));
+            const goldenAngle = Math.PI * (3 - Math.sqrt(5));
+            particles.length = 0;
+            for (let i = 0; i < particleCount; i++) {
+                const angle = i * goldenAngle;
+                particles.push({
+                    x: 0,
+                    y: 0,
+                    angle,
+                    bandPhase: Math.random() * Math.PI * 2,
+                    bandCycleSpeed: 0.012 + Math.random() * 0.006,
+                    orbitSpeed: 0.0025 + Math.random() * 0.002,
+                    dashLength: 3.5 + Math.random() * 3.5,
+                    dashWidth: 1.8 + Math.random() * 1,
+                    twinklePhase: Math.random() * Math.PI * 2,
+                    twinkleSpeed: 0.025 + Math.random() * 0.045,
+                    color: particleColors[Math.floor(Math.random() * particleColors.length)]
+                });
+            }
+            const cardBounds = loginCard.getBoundingClientRect();
+            const centerX = cardBounds.left + cardBounds.width / 2;
+            const centerY = cardBounds.top + cardBounds.height / 2;
+            for (const particle of particles) {
+                const bandRatio = 0.2 + 0.78 * (0.5 + 0.5 * Math.cos(particle.bandPhase));
+                const band = 20 + getMaximumOrbitBand(particle.angle, cardBounds) * bandRatio;
+                const orbitX = cardBounds.width / 2 + band;
+                const orbitY = cardBounds.height / 2 + band;
+                particle.x = centerX + Math.cos(particle.angle) * orbitX;
+                particle.y = centerY + Math.sin(particle.angle) * orbitY;
+            }
+            drawParticles(false);
+            if (!reducedMotion && particleFrame === null) {
+                particleFrame = requestAnimationFrame(animateParticles);
+            }
+        }
+
+        function drawParticles(animate) {
+            particleContext.clearRect(0, 0, window.innerWidth, window.innerHeight);
+            const cardBounds = loginCard.getBoundingClientRect();
+            const centerX = cardBounds.left + cardBounds.width / 2;
+            const centerY = cardBounds.top + cardBounds.height / 2;
+            for (const particle of particles) {
+                if (animate) particle.angle += particle.orbitSpeed;
+                if (animate) particle.bandPhase += particle.bandCycleSpeed;
+                if (animate) particle.twinklePhase += particle.twinkleSpeed;
+
+                const bandRatio = 0.2 + 0.78 * (0.5 + 0.5 * Math.cos(particle.bandPhase));
+                const band = 20 + getMaximumOrbitBand(particle.angle, cardBounds) * bandRatio;
+                const orbitX = cardBounds.width / 2 + band;
+                const orbitY = cardBounds.height / 2 + band;
+                const orbitTargetX = centerX + Math.cos(particle.angle) * orbitX;
+                const orbitTargetY = centerY + Math.sin(particle.angle) * orbitY;
+                let targetX = orbitTargetX;
+                let targetY = orbitTargetY;
+
+                if (pointer.active) {
+                    const dx = orbitTargetX - pointer.x;
+                    const dy = orbitTargetY - pointer.y;
+                    const distance = Math.hypot(dx, dy);
+                    const spreadRadius = 230;
+                    if (distance < spreadRadius && distance > 0) {
+                        const spread = (1 - distance / spreadRadius) * 58;
+                        targetX += (dx / distance) * spread;
+                        targetY += (dy / distance) * spread;
+                    }
+                }
+
+                const followSpeed = reducedMotion ? 1 : 0.045;
+                particle.x += (targetX - particle.x) * followSpeed;
+                particle.y += (targetY - particle.y) * followSpeed;
+
+                const twinkle = 0.55 + (Math.sin(particle.twinklePhase) + 1) * 0.225;
+                const tangentX = -Math.sin(particle.angle) * orbitX;
+                const tangentY = Math.cos(particle.angle) * orbitY;
+                const tangentLength = Math.hypot(tangentX, tangentY) || 1;
+                const halfDash = particle.dashLength / 2;
+                particleContext.globalAlpha = twinkle;
+                particleContext.strokeStyle = particle.color;
+                particleContext.lineWidth = particle.dashWidth;
+                particleContext.lineCap = 'round';
+                particleContext.beginPath();
+                particleContext.moveTo(
+                    particle.x - (tangentX / tangentLength) * halfDash,
+                    particle.y - (tangentY / tangentLength) * halfDash
+                );
+                particleContext.lineTo(
+                    particle.x + (tangentX / tangentLength) * halfDash,
+                    particle.y + (tangentY / tangentLength) * halfDash
+                );
+                particleContext.stroke();
+            }
+            particleContext.globalAlpha = 1;
+        }
+
+        function getMaximumOrbitBand(angle, cardBounds) {
+            const centerX = cardBounds.left + cardBounds.width / 2;
+            const centerY = cardBounds.top + cardBounds.height / 2;
+            const cos = Math.cos(angle);
+            const sin = Math.sin(angle);
+            const margin = 14;
+            const limits = [];
+
+            if (cos > 0.001) limits.push((window.innerWidth - margin - centerX) / cos - cardBounds.width / 2);
+            if (cos < -0.001) limits.push((centerX - margin) / -cos - cardBounds.width / 2);
+            if (sin > 0.001) limits.push((window.innerHeight - margin - centerY) / sin - cardBounds.height / 2);
+            if (sin < -0.001) limits.push((centerY - margin) / -sin - cardBounds.height / 2);
+
+            return Math.max(16, Math.min(...limits));
+        }
+
+        function animateParticles() {
+            drawParticles(true);
+            particleFrame = requestAnimationFrame(animateParticles);
+        }
+
+        window.addEventListener('resize', resizeParticleCanvas);
+        document.addEventListener('pointermove', event => {
+            if (event.pointerType === 'touch') return;
+            pointer.x = event.clientX;
+            pointer.y = event.clientY;
+            pointer.active = true;
+            if (reducedMotion) drawParticles(false);
         });
-
         document.addEventListener('pointerleave', () => {
-            cursorLight.style.opacity = '0.55';
+            pointer.active = false;
         });
-
-        document.addEventListener('pointerenter', () => {
-            cursorLight.style.opacity = '0.9';
-        });
+        resizeParticleCanvas();
 
         document.getElementById('loginForm').addEventListener('submit', async (e) => {
             e.preventDefault();

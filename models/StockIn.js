@@ -5,6 +5,7 @@ class StockIn {
         const [rows] = await db.query(
             `SELECT s.NoStokIn AS no_stok_in,
                     DATE_FORMAT(s.Tanggal, '%Y-%m-%d') AS tanggal,
+                    s.Status AS status,
                     CASE WHEN EXISTS (
                         SELECT 1
                         FROM detailpenjualan sold
@@ -18,7 +19,24 @@ class StockIn {
                         JOIN penjualan sale ON sale.NoPenjualan = sold.NoPenjualan
                         WHERE source.NoStokIn = s.NoStokIn
                           AND sale.Tanggal >= s.Tanggal
-                    ) THEN 0 ELSE 1 END AS can_edit
+                    ) THEN 0 ELSE 1 END AS can_edit,
+                    CASE WHEN EXISTS (
+                        SELECT 1
+                        FROM detailpenjualan sold
+                        JOIN penjualan sale ON sale.NoPenjualan = sold.NoPenjualan
+                        WHERE sold.NoStokIn = s.NoStokIn
+                          AND sale.Status = 'Confirmed'
+                    ) OR EXISTS (
+                        SELECT 1
+                        FROM detailstokin source
+                        JOIN detailpenjualan sold
+                          ON sold.KodeBarang = source.KodeBarang
+                         AND sold.NoStokIn IS NULL
+                        JOIN penjualan sale ON sale.NoPenjualan = sold.NoPenjualan
+                        WHERE source.NoStokIn = s.NoStokIn
+                          AND sale.Status = 'Confirmed'
+                          AND sale.Tanggal >= s.Tanggal
+                    ) THEN 0 ELSE 1 END AS can_revert
              FROM stokin s
              ORDER BY s.Tanggal DESC, s.NoStokIn DESC`
         );
@@ -31,6 +49,7 @@ class StockIn {
                     DATE_FORMAT(s.Tanggal, '%Y-%m-%d') AS tanggal,
                     s.KodeSupplier AS kode_supplier, supplier.NamaSupplier AS nama_supplier,
                     s.GrandTotal AS grand_total,
+                    s.Status AS status,
                     CASE WHEN EXISTS (
                         SELECT 1
                         FROM detailpenjualan sold
@@ -44,7 +63,24 @@ class StockIn {
                         JOIN penjualan sale ON sale.NoPenjualan = sold.NoPenjualan
                         WHERE source.NoStokIn = s.NoStokIn
                           AND sale.Tanggal >= s.Tanggal
-                    ) THEN 0 ELSE 1 END AS can_edit
+                    ) THEN 0 ELSE 1 END AS can_edit,
+                    CASE WHEN EXISTS (
+                        SELECT 1
+                        FROM detailpenjualan sold
+                        JOIN penjualan sale ON sale.NoPenjualan = sold.NoPenjualan
+                        WHERE sold.NoStokIn = s.NoStokIn
+                          AND sale.Status = 'Confirmed'
+                    ) OR EXISTS (
+                        SELECT 1
+                        FROM detailstokin source
+                        JOIN detailpenjualan sold
+                          ON sold.KodeBarang = source.KodeBarang
+                         AND sold.NoStokIn IS NULL
+                        JOIN penjualan sale ON sale.NoPenjualan = sold.NoPenjualan
+                        WHERE source.NoStokIn = s.NoStokIn
+                          AND sale.Status = 'Confirmed'
+                          AND sale.Tanggal >= s.Tanggal
+                    ) THEN 0 ELSE 1 END AS can_revert
              FROM stokin s
              LEFT JOIN mastersupplier supplier ON supplier.KodeSupplier = s.KodeSupplier
              WHERE s.NoStokIn = ?`,
@@ -82,11 +118,15 @@ class StockIn {
                  SELECT NoStokIn, KodeBarang, SUM(Qty) AS qty
                  FROM detailpenjualan
                  WHERE NoStokIn IS NOT NULL
+                   AND NoPenjualan IN (
+                       SELECT NoPenjualan FROM penjualan WHERE Status = 'Confirmed'
+                   )
                    AND (? IS NULL OR NoPenjualan <> ?)
                  GROUP BY NoStokIn, KodeBarang
              ) sold ON sold.NoStokIn = source.NoStokIn
                    AND sold.KodeBarang = source.KodeBarang
              WHERE source.KodeBarang = ?
+               AND s.Status = 'Confirmed'
                AND source.qty - COALESCE(sold.qty, 0) > 0
              ORDER BY s.Tanggal, s.NoStokIn`,
             [kodeBarang, excludeSale, excludeSale, kodeBarang]
@@ -104,8 +144,8 @@ class StockIn {
             );
             const grandTotal = grandTotalCents / 100;
             await connection.query(
-                `INSERT INTO stokin (NoStokIn, Tanggal, KodeSupplier, GrandTotal, is_synced)
-                 VALUES (?, ?, ?, ?, 0)`,
+                `INSERT INTO stokin (NoStokIn, Tanggal, KodeSupplier, GrandTotal, Status, is_synced)
+                 VALUES (?, ?, ?, ?, 'Pending', 0)`,
                 [no_stok_in, tanggal, kode_supplier, grandTotal]
             );
 
@@ -127,41 +167,10 @@ class StockIn {
                     [no_stok_in, item.kode_barang, item.qty, item.satuan_harga, subtotal]
                 );
 
-                const [stocks] = await connection.query(
-                    'SELECT StokCurrent FROM inventorystock WHERE KodeBarang = ? FOR UPDATE',
-                    [item.kode_barang]
-                );
-                const openingStock = stocks.length ? Number(stocks[0].StokCurrent) : 0;
-                const closingStock = openingStock + item.qty;
-                if (stocks.length) {
-                    await connection.query(
-                        'UPDATE inventorystock SET StokCurrent = ? WHERE KodeBarang = ?',
-                        [closingStock, item.kode_barang]
-                    );
-                } else {
-                    await connection.query(
-                        'INSERT INTO inventorystock (KodeBarang, StokCurrent) VALUES (?, ?)',
-                        [item.kode_barang, closingStock]
-                    );
-                }
-
-                await connection.query(
-                    `INSERT INTO inventorylog
-                        (KodeBarang, JenisTransaksi, NoReferensi, QtyMasuk, QtyKeluar, StokAwal, StokAkhir, Keterangan)
-                     VALUES (?, 'Stokin', ?, ?, 0, ?, ?, ?)`,
-                    [
-                        item.kode_barang,
-                        no_stok_in,
-                        item.qty,
-                        openingStock,
-                        closingStock,
-                        `Stok In ${no_stok_in}`
-                    ]
-                );
             }
 
             await connection.commit();
-            return { no_stok_in, grand_total: grandTotal };
+            return { no_stok_in, grand_total: grandTotal, status: 'Pending' };
         } catch (err) {
             await connection.rollback();
             throw err;
@@ -175,7 +184,7 @@ class StockIn {
         try {
             await connection.beginTransaction();
             const [headers] = await connection.query(
-                'SELECT NoStokIn FROM stokin WHERE NoStokIn = ? FOR UPDATE',
+                'SELECT NoStokIn, Status AS status FROM stokin WHERE NoStokIn = ? FOR UPDATE',
                 [noStokIn]
             );
             if (!headers.length) {
@@ -183,34 +192,23 @@ class StockIn {
                 error.statusCode = 404;
                 throw error;
             }
-            await this.assertEditable(connection, noStokIn);
+            if (headers[0].status !== 'Pending') {
+                const error = new Error('Ubah status stok in menjadi Pending sebelum mengedit.');
+                error.statusCode = 409;
+                throw error;
+            }
+            await this.assertNoSales(connection, noStokIn);
 
-            const [previousRows] = await connection.query(
-                `SELECT KodeBarang AS kode_barang, SUM(Qty) AS qty
-                 FROM detailstokin
-                 WHERE NoStokIn = ?
-                 GROUP BY KodeBarang`,
-                [noStokIn]
-            );
-            const oldQuantities = new Map(previousRows.map(item => [
-                item.kode_barang,
-                Number(item.qty)
-            ]));
-            const newQuantities = this.sumQuantities(items);
-            const codes = [...new Set([...oldQuantities.keys(), ...newQuantities.keys()])].sort();
-            const productState = await this.lockProductStocks(connection, codes);
-            const changes = new Map();
-
-            for (const code of codes) {
-                const difference = (newQuantities.get(code) || 0) - (oldQuantities.get(code) || 0);
-                const product = productState.get(code);
-                const closingStock = product.stok + difference;
-                if (closingStock < 0) {
-                    const error = new Error(`Stok ${product.nama_barang} tidak cukup untuk perubahan ini.`);
-                    error.statusCode = 409;
+            for (const item of items) {
+                const [products] = await connection.query(
+                    'SELECT KodeBarang FROM masterbarang WHERE KodeBarang = ?',
+                    [item.kode_barang]
+                );
+                if (!products.length) {
+                    const error = new Error(`Barang ${item.kode_barang} tidak ditemukan.`);
+                    error.statusCode = 400;
                     throw error;
                 }
-                changes.set(code, { ...product, difference, closingStock });
             }
 
             const grandTotalCents = items.reduce(
@@ -241,38 +239,8 @@ class StockIn {
                 );
             }
 
-            for (const [code, change] of changes) {
-                if (change.difference !== 0) {
-                    if (change.has_stock) {
-                        await connection.query(
-                            'UPDATE inventorystock SET StokCurrent = ? WHERE KodeBarang = ?',
-                            [change.closingStock, code]
-                        );
-                    } else {
-                        await connection.query(
-                            'INSERT INTO inventorystock (KodeBarang, StokCurrent) VALUES (?, ?)',
-                            [code, change.closingStock]
-                        );
-                    }
-                    await connection.query(
-                        `INSERT INTO inventorylog
-                            (KodeBarang, JenisTransaksi, NoReferensi, QtyMasuk, QtyKeluar, StokAwal, StokAkhir, Keterangan)
-                         VALUES (?, 'Stokin', ?, ?, ?, ?, ?, ?)`,
-                        [
-                            code,
-                            noStokIn,
-                            Math.max(change.difference, 0),
-                            Math.max(-change.difference, 0),
-                            change.stok,
-                            change.closingStock,
-                            `Perubahan Stok In ${noStokIn}`
-                        ]
-                    );
-                }
-            }
-
             await connection.commit();
-            return { no_stok_in: noStokIn, grand_total: grandTotal };
+            return { no_stok_in: noStokIn, grand_total: grandTotal, status: 'Pending' };
         } catch (err) {
             await connection.rollback();
             throw err;
@@ -286,7 +254,7 @@ class StockIn {
         try {
             await connection.beginTransaction();
             const [headers] = await connection.query(
-                'SELECT NoStokIn FROM stokin WHERE NoStokIn = ? FOR UPDATE',
+                'SELECT NoStokIn, Status AS status FROM stokin WHERE NoStokIn = ? FOR UPDATE',
                 [noStokIn]
             );
             if (!headers.length) {
@@ -294,45 +262,16 @@ class StockIn {
                 error.statusCode = 404;
                 throw error;
             }
-            await this.assertEditable(connection, noStokIn);
+            await this.assertNoSales(connection, noStokIn);
 
-            const [rows] = await connection.query(
-                `SELECT KodeBarang AS kode_barang, SUM(Qty) AS qty
-                 FROM detailstokin
-                 WHERE NoStokIn = ?
-                 GROUP BY KodeBarang`,
-                [noStokIn]
-            );
-            const quantities = new Map(rows.map(item => [item.kode_barang, Number(item.qty)]));
-            const codes = [...quantities.keys()].sort();
-            const productState = await this.lockProductStocks(connection, codes);
-
-            for (const code of codes) {
-                const product = productState.get(code);
-                const closingStock = product.stok - quantities.get(code);
-                if (closingStock < 0) {
-                    const error = new Error(
-                        `Stok ${product.nama_barang} sudah terpakai dan transaksi tidak dapat dihapus.`
-                    );
-                    error.statusCode = 409;
-                    throw error;
-                }
-                await connection.query(
-                    'UPDATE inventorystock SET StokCurrent = ? WHERE KodeBarang = ?',
-                    [closingStock, code]
-                );
-                await connection.query(
-                    `INSERT INTO inventorylog
-                        (KodeBarang, JenisTransaksi, NoReferensi, QtyMasuk, QtyKeluar, StokAwal, StokAkhir, Keterangan)
-                     VALUES (?, 'Stokin', ?, 0, ?, ?, ?, ?)`,
-                    [
-                        code,
-                        noStokIn,
-                        quantities.get(code),
-                        product.stok,
-                        closingStock,
-                        `Penghapusan Stok In ${noStokIn}`
-                    ]
+            if (headers[0].status === 'Confirmed') {
+                const quantities = await this.getQuantities(connection, noStokIn);
+                await this.applyInventoryChange(
+                    connection,
+                    noStokIn,
+                    quantities,
+                    -1,
+                    `Penghapusan Stok In ${noStokIn}`
                 );
             }
 
@@ -348,10 +287,155 @@ class StockIn {
         }
     }
 
-    static async assertEditable(connection, noStokIn) {
+    static async setStatus(noStokIn, status) {
+        if (!['Pending', 'Confirmed'].includes(status)) {
+            const error = new Error('Status stok in tidak valid.');
+            error.statusCode = 400;
+            throw error;
+        }
+
+        const connection = await db.getConnection();
+        try {
+            await connection.beginTransaction();
+            const [headers] = await connection.query(
+                'SELECT Status AS status FROM stokin WHERE NoStokIn = ? FOR UPDATE',
+                [noStokIn]
+            );
+            if (!headers.length) {
+                const error = new Error('Stok in tidak ditemukan.');
+                error.statusCode = 404;
+                throw error;
+            }
+            const currentStatus = headers[0].status;
+            if (currentStatus === status) {
+                await connection.commit();
+                return { no_stok_in: noStokIn, status };
+            }
+
+            if (status === 'Pending') {
+                await this.assertNoConfirmedSales(connection, noStokIn);
+                const quantities = await this.getQuantities(connection, noStokIn);
+                await this.applyInventoryChange(
+                    connection,
+                    noStokIn,
+                    quantities,
+                    -1,
+                    `Stok In ${noStokIn} dikembalikan ke Pending`
+                );
+            } else {
+                const quantities = await this.getQuantities(connection, noStokIn);
+                await this.applyInventoryChange(
+                    connection,
+                    noStokIn,
+                    quantities,
+                    1,
+                    `Konfirmasi Stok In ${noStokIn}`
+                );
+            }
+
+            await connection.query(
+                'UPDATE stokin SET Status = ?, is_synced = 0 WHERE NoStokIn = ?',
+                [status, noStokIn]
+            );
+            await connection.commit();
+            return { no_stok_in: noStokIn, status };
+        } catch (err) {
+            await connection.rollback();
+            throw err;
+        } finally {
+            connection.release();
+        }
+    }
+
+    static async getQuantities(connection, noStokIn) {
+        const [rows] = await connection.query(
+            `SELECT KodeBarang AS kode_barang, SUM(Qty) AS qty
+             FROM detailstokin
+             WHERE NoStokIn = ?
+             GROUP BY KodeBarang`,
+            [noStokIn]
+        );
+        return new Map(rows.map(item => [item.kode_barang, Number(item.qty)]));
+    }
+
+    static async applyInventoryChange(connection, noStokIn, quantities, direction, reason) {
+        const codes = [...quantities.keys()].sort();
+        const productState = await this.lockProductStocks(connection, codes);
+
+        for (const code of codes) {
+            const product = productState.get(code);
+            const qty = quantities.get(code);
+            const closingStock = product.stok + direction * qty;
+            if (closingStock < 0) {
+                const error = new Error(
+                    `Stok ${product.nama_barang} sudah terpakai; transaksi tidak dapat dikembalikan ke Pending.`
+                );
+                error.statusCode = 409;
+                throw error;
+            }
+            if (product.has_stock) {
+                await connection.query(
+                    'UPDATE inventorystock SET StokCurrent = ? WHERE KodeBarang = ?',
+                    [closingStock, code]
+                );
+            } else {
+                await connection.query(
+                    'INSERT INTO inventorystock (KodeBarang, StokCurrent) VALUES (?, ?)',
+                    [code, closingStock]
+                );
+            }
+            await connection.query(
+                `INSERT INTO inventorylog
+                    (KodeBarang, JenisTransaksi, NoReferensi, QtyMasuk, QtyKeluar, StokAwal, StokAkhir, Keterangan)
+                 VALUES (?, 'Stokin', ?, ?, ?, ?, ?, ?)`,
+                [
+                    code,
+                    noStokIn,
+                    direction > 0 ? qty : 0,
+                    direction < 0 ? qty : 0,
+                    product.stok,
+                    closingStock,
+                    reason
+                ]
+            );
+        }
+    }
+
+    static async assertNoConfirmedSales(connection, noStokIn) {
         const [rows] = await connection.query(
             `SELECT EXISTS (
-                 SELECT 1 FROM detailpenjualan sold WHERE sold.NoStokIn = ?
+                 SELECT 1
+                 FROM detailpenjualan sold
+                 JOIN penjualan sale ON sale.NoPenjualan = sold.NoPenjualan
+                 WHERE sold.NoStokIn = ?
+                   AND sale.Status = 'Confirmed'
+             ) OR EXISTS (
+                 SELECT 1
+                 FROM detailstokin source
+                 JOIN detailpenjualan sold
+                   ON sold.KodeBarang = source.KodeBarang
+                  AND sold.NoStokIn IS NULL
+                 JOIN penjualan sale ON sale.NoPenjualan = sold.NoPenjualan
+                 JOIN stokin stockin ON stockin.NoStokIn = source.NoStokIn
+                 WHERE source.NoStokIn = ?
+                   AND sale.Status = 'Confirmed'
+                   AND sale.Tanggal >= stockin.Tanggal
+             ) AS has_sales`,
+            [noStokIn, noStokIn]
+        );
+        if (rows[0].has_sales) {
+            const error = new Error('Stok in tidak bisa diubah atau dihapus karena sudah ada penjualan.');
+            error.statusCode = 409;
+            throw error;
+        }
+    }
+
+    static async assertNoSales(connection, noStokIn) {
+        const [rows] = await connection.query(
+            `SELECT EXISTS (
+                 SELECT 1
+                 FROM detailpenjualan sold
+                 WHERE sold.NoStokIn = ?
              ) OR EXISTS (
                  SELECT 1
                  FROM detailstokin source
@@ -366,21 +450,10 @@ class StockIn {
             [noStokIn, noStokIn]
         );
         if (rows[0].has_sales) {
-            const error = new Error('Stok in tidak bisa diubah atau dihapus karena sudah ada penjualan.');
+            const error = new Error('Stok in tidak bisa diubah atau dihapus karena dipakai dalam penjualan.');
             error.statusCode = 409;
             throw error;
         }
-    }
-
-    static sumQuantities(items) {
-        const quantities = new Map();
-        items.forEach(item => {
-            quantities.set(
-                item.kode_barang,
-                (quantities.get(item.kode_barang) || 0) + item.qty
-            );
-        });
-        return quantities;
     }
 
     static async lockProductStocks(connection, codes) {

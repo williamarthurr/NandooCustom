@@ -47,9 +47,9 @@ class InventoryStock {
 
     static async searchByStockIn(noStokIn) {
         const params = [];
-        let where = '';
+        let where = "WHERE stockin.Status = 'Confirmed'";
         if (noStokIn !== null) {
-            where = 'WHERE source.NoStokIn = ?';
+            where += ' AND source.NoStokIn = ?';
             params.push(noStokIn);
         }
         const [rows] = await db.query(
@@ -69,10 +69,12 @@ class InventoryStock {
              JOIN stokin stockin ON stockin.NoStokIn = source.NoStokIn
              JOIN masterbarang barang ON barang.KodeBarang = source.KodeBarang
              LEFT JOIN (
-                 SELECT NoStokIn, KodeBarang, SUM(Qty) AS qty_keluar
-                 FROM detailpenjualan
-                 WHERE NoStokIn IS NOT NULL
-                 GROUP BY NoStokIn, KodeBarang
+                 SELECT detail.NoStokIn, detail.KodeBarang, SUM(detail.Qty) AS qty_keluar
+                 FROM detailpenjualan detail
+                 JOIN penjualan sale ON sale.NoPenjualan = detail.NoPenjualan
+                 WHERE detail.NoStokIn IS NOT NULL
+                   AND sale.Status = 'Confirmed'
+                 GROUP BY detail.NoStokIn, detail.KodeBarang
              ) sold ON sold.NoStokIn = source.NoStokIn
                    AND sold.KodeBarang = source.KodeBarang
              ${where}
@@ -90,8 +92,10 @@ class InventoryStock {
                     SUM(detail.Qty) AS qty,
                     COUNT(DISTINCT detail.NoPenjualan) AS jumlah_penjualan
              FROM detailpenjualan detail
+             JOIN penjualan sale ON sale.NoPenjualan = detail.NoPenjualan
              JOIN masterbarang barang ON barang.KodeBarang = detail.KodeBarang
              WHERE detail.NoStokIn IS NULL
+               AND sale.Status = 'Confirmed'
              GROUP BY detail.KodeBarang, barang.NamaBarang
              ORDER BY barang.NamaBarang, detail.KodeBarang`
         );

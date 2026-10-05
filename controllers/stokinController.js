@@ -158,6 +158,26 @@ exports.updateStokIn = async (req, res) => {
     }
 };
 
+exports.setStokInStatus = async (req, res) => {
+    const noStokIn = req.params.noStokIn;
+    const { status } = req.body || {};
+    if (!noStokIn.trim() || noStokIn.length > 50) {
+        return res.status(400).json({ error: 'Nomor stok in tidak valid.' });
+    }
+    if (!['Pending', 'Confirmed'].includes(status)) {
+        return res.status(400).json({ error: 'Status stok in tidak valid.' });
+    }
+
+    try {
+        const data = await StockIn.setStatus(noStokIn, status);
+        res.json({ status: 'Success', data });
+    } catch (err) {
+        if (err.statusCode) return res.status(err.statusCode).json({ error: err.message });
+        console.error('Gagal mengubah status stok in:', err);
+        res.status(500).json({ error: 'Gagal mengubah status stok in.' });
+    }
+};
+
 exports.deleteStokIn = async (req, res) => {
     if (!req.params.noStokIn.trim() || req.params.noStokIn.length > 50) {
         return res.status(400).json({ error: 'Nomor stok in tidak valid.' });
