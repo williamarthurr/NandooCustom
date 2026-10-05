@@ -1,9 +1,29 @@
+window.isDashboardLoaderActive = true;
+
 const dashboardModules = [
     'master-data.html',
     'sales.html',
     'stock-in.html',
     'inventory.html'
 ];
+
+const dashboardScripts = [
+    '/dashboard.js',
+    '/modules/master-data.js',
+    '/modules/sales.js',
+    '/modules/stock-in.js',
+    '/modules/inventory.js'
+];
+
+function loadScript(src) {
+    return new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = src;
+        script.onload = () => resolve();
+        script.onerror = () => reject(new Error('Gagal memuat skrip: ' + src));
+        document.body.appendChild(script);
+    });
+}
 
 async function loadDashboard() {
     const container = document.getElementById('moduleContent');
@@ -19,10 +39,16 @@ async function loadDashboard() {
         }));
 
         container.innerHTML = responses.join('\n');
-        const appScript = document.createElement('script');
-        appScript.src = '/dashboard.js';
-        appScript.onerror = () => showModuleLoadError(new Error('Gagal memuat skrip dashboard.'));
-        document.body.appendChild(appScript);
+
+        // Muat modul-modul skrip secara berurutan
+        for (const scriptSrc of dashboardScripts) {
+            await loadScript(scriptSrc);
+        }
+
+        // Jalankan inisialisasi dashboard setelah seluruh modul siap
+        if (typeof initializeDashboard === 'function') {
+            initializeDashboard();
+        }
     } catch (error) {
         showModuleLoadError(error);
     }
