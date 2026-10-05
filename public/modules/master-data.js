@@ -224,7 +224,7 @@ async function saveMasterUser() {
 }
 
 async function deleteMasterUser() {
-    if (!selectedMasterUserId || !window.confirm('Hapus user ini secara permanen?')) return;
+    if (!selectedMasterUserId || !window.confirm(translateAppText('Hapus user ini secara permanen?'))) return;
 
     try {
         const res = await fetch(`${API_URL}/users/${encodeURIComponent(selectedMasterUserId)}`, {
@@ -457,7 +457,7 @@ async function saveMasterRecord(entity) {
 async function deleteMasterRecord(entity) {
     const config = masterDataConfigs[entity];
     const selected = selectedMasterData[entity];
-    if (!selected || !window.confirm(`Hapus ${config.title.toLowerCase()} ini secara permanen?`)) return;
+    if (!selected || !window.confirm(translateAppText(`Hapus ${config.title.toLowerCase()} ini secara permanen?`))) return;
     try {
         const res = await fetch(`${API_URL}/${config.api}/${encodeURIComponent(selected.id)}`, {
             method: 'DELETE',

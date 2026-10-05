@@ -37,6 +37,7 @@ async function fetchStockIn() {
                 numberCell.textContent = item.no_stok_in;
                 const dateCell = document.createElement('td');
                 dateCell.className = 'p-3';
+                dateCell.dataset.dateValue = item.tanggal;
                 dateCell.textContent = formatStockInDate(item.tanggal);
                 const statusCell = document.createElement('td');
                 statusCell.className = 'p-3';
@@ -346,7 +347,7 @@ function showStockInCreateMessage(message, success = false) {
 
 async function setStockInCreateStatus(status) {
     const action = status === 'Confirmed' ? 'mengonfirmasi' : 'mengembalikan ke Pending';
-    if (!window.confirm(`Yakin ${action} stok in ${editingStockInNumber}?`)) return;
+    if (!window.confirm(translateAppText(`Yakin ${action} stok in ${editingStockInNumber}?`))) return;
     const statusButton = document.getElementById('btnToggleStockInCreateStatus');
     statusButton.disabled = true;
     try {
@@ -382,7 +383,7 @@ async function setStockInCreateStatus(status) {
 }
 
 async function deleteStockInCreateDraft() {
-    if (!window.confirm(`Hapus draft stok in ${editingStockInNumber}?`)) return;
+    if (!window.confirm(translateAppText(`Hapus draft stok in ${editingStockInNumber}?`))) return;
     try {
         const res = await fetch(`${API_URL}/stokin/${encodeURIComponent(editingStockInNumber)}`, {
             method: 'DELETE',
@@ -413,7 +414,9 @@ async function showStockInDetail(noStokIn) {
         detailMessage.textContent = '';
         detailMessage.classList.add('hidden');
         document.getElementById('stockInDetailTitle').textContent = `Detail Stok In`;
-        document.getElementById('stockInDetailSubtitle').textContent = formatStockInDate(stockIn.tanggal);
+        const subtitle = document.getElementById('stockInDetailSubtitle');
+        subtitle.dataset.dateValue = stockIn.tanggal;
+        subtitle.textContent = formatStockInDate(stockIn.tanggal);
         document.getElementById('stockInDetailNumber').textContent = stockIn.no_stok_in;
         document.getElementById('stockInDetailSupplier').textContent =
             stockIn.nama_supplier || stockIn.kode_supplier || '-';
@@ -486,7 +489,7 @@ async function showStockInDetail(noStokIn) {
 
 async function setStockInStatus(noStokIn, status) {
     const action = status === 'Confirmed' ? 'mengonfirmasi' : 'mengembalikan ke Pending';
-    if (!window.confirm(`Yakin ${action} stok in ${noStokIn}?`)) return;
+    if (!window.confirm(translateAppText(`Yakin ${action} stok in ${noStokIn}?`))) return;
     try {
         const res = await fetch(`${API_URL}/stokin/${encodeURIComponent(noStokIn)}/status`, {
             method: 'PATCH',
@@ -531,7 +534,7 @@ async function editStockIn(noStokIn) {
 }
 
 async function deleteStockIn(noStokIn) {
-    if (!window.confirm(`Hapus stok in ${noStokIn}?`)) return;
+    if (!window.confirm(translateAppText(`Hapus stok in ${noStokIn}?`))) return;
     try {
         const res = await fetch(`${API_URL}/stokin/${encodeURIComponent(noStokIn)}`, {
             method: 'DELETE',

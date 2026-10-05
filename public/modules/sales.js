@@ -35,6 +35,7 @@ async function fetchSales() {
                 numberCell.textContent = sale.no_penjualan;
                 const dateCell = document.createElement('td');
                 dateCell.className = 'p-3';
+                dateCell.dataset.dateValue = sale.tanggal;
                 dateCell.textContent = formatStockInDate(sale.tanggal);
                 const statusCell = document.createElement('td');
                 statusCell.className = 'p-3';
@@ -67,7 +68,9 @@ async function showSalesDetail(noPenjualan) {
         const detailMessage = document.getElementById('salesDetailMessage');
         detailMessage.textContent = '';
         detailMessage.classList.add('hidden');
-        document.getElementById('salesDetailSubtitle').textContent = formatStockInDate(sale.tanggal);
+        const subtitle = document.getElementById('salesDetailSubtitle');
+        subtitle.dataset.dateValue = sale.tanggal;
+        subtitle.textContent = formatStockInDate(sale.tanggal);
         document.getElementById('salesDetailNumber').textContent = sale.no_penjualan;
         document.getElementById('salesDetailCustomer').textContent =
             sale.nama_pelanggan || sale.kode_pelanggan || '-';
@@ -129,7 +132,7 @@ async function showSalesDetail(noPenjualan) {
 
 async function setSaleStatus(noPenjualan, status) {
     const action = status === 'Confirmed' ? 'mengonfirmasi' : 'mengembalikan ke Pending';
-    if (!window.confirm(`Yakin ${action} penjualan ${noPenjualan}?`)) return;
+    if (!window.confirm(translateAppText(`Yakin ${action} penjualan ${noPenjualan}?`))) return;
     try {
         const res = await fetch(`${API_URL}/penjualan/${encodeURIComponent(noPenjualan)}/status`, {
             method: 'PATCH',
@@ -156,7 +159,7 @@ async function setSaleStatus(noPenjualan, status) {
 }
 
 async function deleteSale(noPenjualan) {
-    if (!window.confirm(`Hapus penjualan ${noPenjualan}?`)) return;
+    if (!window.confirm(translateAppText(`Hapus penjualan ${noPenjualan}?`))) return;
     try {
         const res = await fetch(`${API_URL}/penjualan/${encodeURIComponent(noPenjualan)}`, {
             method: 'DELETE',
@@ -541,7 +544,7 @@ function showSalesCreateMessage(message, success = false) {
 
 async function setSaleCreateStatus(status) {
     const action = status === 'Confirmed' ? 'mengonfirmasi' : 'mengembalikan ke Pending';
-    if (!window.confirm(`Yakin ${action} penjualan ${editingSaleNumber}?`)) return;
+    if (!window.confirm(translateAppText(`Yakin ${action} penjualan ${editingSaleNumber}?`))) return;
     const statusButton = document.getElementById('btnToggleSaleCreateStatus');
     statusButton.disabled = true;
     try {
@@ -568,7 +571,7 @@ async function setSaleCreateStatus(status) {
 }
 
 async function deleteSaleCreateDraft() {
-    if (!window.confirm(`Hapus draft penjualan ${editingSaleNumber}?`)) return;
+    if (!window.confirm(translateAppText(`Hapus draft penjualan ${editingSaleNumber}?`))) return;
     try {
         const res = await fetch(`${API_URL}/penjualan/${encodeURIComponent(editingSaleNumber)}`, {
             method: 'DELETE',

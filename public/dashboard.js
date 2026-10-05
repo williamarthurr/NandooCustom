@@ -11,7 +11,8 @@ var globalBarang = [];
 function formatStockInDate(value) {
     const date = new Date(value);
     if (Number.isNaN(date.getTime())) return String(value || '-');
-    return new Intl.DateTimeFormat('id-ID', {
+    const locale = window.getAppLanguage?.() === 'en' ? 'en-US' : 'id-ID';
+    return new Intl.DateTimeFormat(locale, {
         day: '2-digit',
         month: 'long',
         year: 'numeric',
@@ -25,10 +26,7 @@ function initializeDashboard() {
         window.location.href = '/login.html';
         return;
     }
-    const userNameEl = document.getElementById('userName');
-    if (userNameEl) {
-        userNameEl.textContent = `Hi, ${user.nama || user.username || 'User'}`;
-    }
+    applyDashboardLanguage();
     const userRoleEl = document.getElementById('userRole');
     if (userRoleEl) {
         userRoleEl.textContent = user.role || 'User';
@@ -49,11 +47,47 @@ function initializeDashboard() {
     if (currentTab) switchTab(currentTab);
 }
 
+function applyDashboardLanguage() {
+    const userNameEl = document.getElementById('userName');
+    if (userNameEl) {
+        const greeting = window.getAppLanguage?.() === 'en' ? 'Hi' : 'Selamat Datang';
+        userNameEl.textContent = `${greeting}, ${user.nama || user.username || 'User'}`;
+    }
+    document.querySelectorAll('[data-date-value]').forEach(element => {
+        element.textContent = formatStockInDate(element.dataset.dateValue);
+    });
+    const tab = new URLSearchParams(window.location.search).get('tab');
+    const englishTitles = {
+        pos: 'Sales - nandoApp',
+        stokin: 'Stock In - nandoApp',
+        inventory: 'Inventory - nandoApp',
+        'master-user': 'Users - nandoApp',
+        'master-barang': 'Products - nandoApp',
+        'master-supplier': 'Suppliers - nandoApp',
+        'master-pelanggan': 'Customers - nandoApp'
+    };
+    const indonesianTitles = {
+        pos: 'Penjualan - nandoApp',
+        stokin: 'Stok In - nandoApp',
+        inventory: 'Inventory - nandoApp',
+        'master-user': 'Master User - nandoApp',
+        'master-barang': 'Master Barang - nandoApp',
+        'master-supplier': 'Master Supplier - nandoApp',
+        'master-pelanggan': 'Master Pelanggan - nandoApp'
+    };
+    const titles = window.getAppLanguage?.() === 'en' ? englishTitles : indonesianTitles;
+    if (tab && titles[tab]) document.title = titles[tab];
+}
+
+window.applyDashboardLanguage = applyDashboardLanguage;
+
 // Event listener Logout
 const btnLogout = document.getElementById('btnLogout');
 if (btnLogout) {
     btnLogout.addEventListener('click', () => {
+        const language = localStorage.getItem('app-language');
         localStorage.clear();
+        if (language) localStorage.setItem('app-language', language);
         window.location.href = '/login.html';
     });
 }
@@ -113,7 +147,15 @@ function switchTab(modulName) {
     }
 
     // Update title tab browser agar mudah dikenali saat multitasking
-    const tabTitles = {
+    const tabTitles = window.getAppLanguage?.() === 'en' ? {
+        'pos': 'Sales - nandoApp',
+        'stokin': 'Stock In - nandoApp',
+        'inventory': 'Inventory - nandoApp',
+        'master-user': 'Users - nandoApp',
+        'master-barang': 'Products - nandoApp',
+        'master-supplier': 'Suppliers - nandoApp',
+        'master-pelanggan': 'Customers - nandoApp'
+    } : {
         'pos': 'Penjualan - nandoApp',
         'stokin': 'Stok In - nandoApp',
         'inventory': 'Inventory - nandoApp',
