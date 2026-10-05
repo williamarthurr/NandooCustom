@@ -6,6 +6,9 @@ let editingStockInNumber = null;
 let editingStockInStatus = null;
 let editingStockInCanEdit = false;
 let editingStockInCanRevert = false;
+let currentStockInReport = null;
+let stockInReportZoom = 1;
+let stockInReportMainZIndex = '';
 
 async function fetchStockIn() {
     try {
@@ -410,6 +413,7 @@ async function showStockInDetail(noStokIn) {
         if (!res.ok) throw new Error(result.error || 'Gagal mengambil detail stok in.');
 
         const stockIn = result.data;
+        currentStockInReport = stockIn;
         const detailMessage = document.getElementById('stockInDetailMessage');
         detailMessage.textContent = '';
         detailMessage.classList.add('hidden');
@@ -487,6 +491,262 @@ async function showStockInDetail(noStokIn) {
     }
 }
 
+function openStockInReport() {
+    if (!currentStockInReport) {
+        showStockInMessage('Data laporan stok in tidak tersedia.');
+        return;
+    }
+
+    const frame = document.getElementById('stockInReportFrame');
+    frame.srcdoc = buildStockInReportPreview(currentStockInReport);
+    const modal = document.getElementById('stockInReportModal');
+    const main = modal.closest('main');
+    if (main) {
+        stockInReportMainZIndex = main.style.zIndex;
+        main.style.zIndex = '1000';
+    }
+    modal.classList.add('is-open');
+    modal.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('overflow-hidden');
+    stockInReportZoom = 1;
+}
+
+function closeStockInReport() {
+    const modal = document.getElementById('stockInReportModal');
+    if (!modal) return;
+    modal.classList.remove('is-open');
+    modal.setAttribute('aria-hidden', 'true');
+    const main = modal.closest('main');
+    if (main) main.style.zIndex = stockInReportMainZIndex;
+    if (document.getElementById('stockInDetailModal').classList.contains('hidden')) {
+        document.body.classList.remove('overflow-hidden');
+    }
+}
+
+function printStockInReport() {
+    const frame = document.getElementById('stockInReportFrame');
+    if (!frame.contentWindow) {
+        showStockInMessage('Preview laporan belum siap dicetak.');
+        return;
+    }
+    frame.contentWindow.focus();
+    frame.contentWindow.print();
+}
+
+function zoomStockInReport(change) {
+    stockInReportZoom = Math.min(1.5, Math.max(0.6, stockInReportZoom + change));
+    applyStockInReportZoom();
+}
+
+function resetStockInReportZoom() {
+    stockInReportZoom = 1;
+    applyStockInReportZoom();
+}
+
+function applyStockInReportZoom() {
+    const frame = document.getElementById('stockInReportFrame');
+    const report = frame.contentDocument?.body;
+    if (report) report.style.zoom = String(stockInReportZoom);
+}
+
+function emailStockInReport() {
+    if (!currentStockInReport) {
+        showStockInMessage('Data laporan stok in tidak tersedia.');
+        return;
+    }
+
+    const stockIn = currentStockInReport;
+    const subject = `Laporan Stok In ${stockIn.no_stok_in}`;
+    const items = (Array.isArray(stockIn.details) ? stockIn.details : []).map(detail =>
+        `- ${detail.kode_barang} | ${detail.nama_barang || '-'} | ${detail.qty} ${detail.satuan || ''} | Rp ${Number(detail.subtotal || 0).toLocaleString('id-ID')}`
+    );
+    const body = [
+        `Laporan Stok In ${stockIn.no_stok_in}`,
+        `Tanggal: ${formatStockInDate(stockIn.tanggal)}`,
+        `Supplier: ${stockIn.nama_supplier || stockIn.kode_supplier || '-'}`,
+        `Status: ${stockIn.status}`,
+        '',
+        'Rincian barang:',
+        ...items,
+        '',
+        `Grand Total: Rp ${Number(stockIn.grand_total || 0).toLocaleString('id-ID')}`
+    ].join('\n');
+
+    window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+}
+
+function downloadStockInReportXls() {
+    if (!currentStockInReport) {
+        showStockInMessage('Data laporan stok in tidak tersedia.');
+        return;
+    }
+
+    const stockIn = currentStockInReport;
+    const details = Array.isArray(stockIn.details) ? stockIn.details : [];
+    const status = stockIn.status === 'Pending' ? 'Pending' : 'Dikonfirmasi';
+    const rows = [
+        `<Row><Cell ss:MergeAcross="4"><Data ss:Type="String">${escapeSpreadsheetValue(translateAppText('Laporan Stok In').toUpperCase())}</Data></Cell></Row>`,
+        spreadsheetRow([
+            translateAppText('No. Stok In'),
+            stockIn.no_stok_in,
+            translateAppText('Tanggal'),
+            formatStockInDate(stockIn.tanggal)
+        ]),
+        spreadsheetRow([
+            translateAppText('Supplier'),
+            stockIn.nama_supplier || stockIn.kode_supplier || '-',
+            translateAppText('Status'),
+            translateAppText(status)
+        ]),
+        spreadsheetRow(['']),
+        spreadsheetRow([
+            translateAppText('Kode Barang'),
+            translateAppText('Nama Barang'),
+            translateAppText('Qty'),
+            translateAppText('Harga Satuan'),
+            translateAppText('Subtotal')
+        ], 'Header')
+    ];
+
+    details.forEach(detail => {
+        rows.push(spreadsheetRow([
+            detail.kode_barang,
+            detail.nama_barang || '-',
+            Number(detail.qty || 0),
+            Number(detail.satuan_harga || 0),
+            Number(detail.subtotal || 0)
+        ], 'Detail'));
+    });
+    rows.push(spreadsheetRow([
+        '',
+        '',
+        '',
+        translateAppText('Grand Total'),
+        Number(stockIn.grand_total || 0)
+    ], 'Total'));
+
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<?mso-application progid="Excel.Sheet"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
+    <Styles>
+        <Style ss:ID="Header"><Font ss:Bold="1" ss:Color="#FFFFFF"/><Interior ss:Color="#4338CA" ss:Pattern="Solid"/></Style>
+        <Style ss:ID="Number"><NumberFormat ss:Format="#,##0"/></Style>
+        <Style ss:ID="Currency"><NumberFormat ss:Format="&quot;Rp&quot; #,##0"/></Style>
+        <Style ss:ID="Total"><Font ss:Bold="1"/><NumberFormat ss:Format="&quot;Rp&quot; #,##0"/></Style>
+    </Styles>
+    <Worksheet ss:Name="Stock In"><Table>${rows.join('')}</Table></Worksheet>
+</Workbook>`;
+    const blob = new Blob([`\uFEFF${xml}`], { type: 'application/vnd.ms-excel;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    const safeNumber = String(stockIn.no_stok_in || 'stock-in')
+        .replace(/[<>:"/\\|?*]+/g, '_')
+        .replace(/^\.+|\.+$/g, '') || 'stock-in';
+    link.href = url;
+    link.download = `Laporan-Stok-In-${safeNumber}.xls`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function buildStockInReportPreview(stockIn) {
+    const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, character => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;'
+    })[character]);
+    const details = Array.isArray(stockIn.details) ? stockIn.details : [];
+    const rows = details.map(detail => `
+        <tr>
+            <td>${escapeHtml(detail.kode_barang)}</td>
+            <td>${escapeHtml(detail.nama_barang || '-')}</td>
+            <td>${escapeHtml(`${detail.qty} ${detail.satuan || ''}`.trim())}</td>
+            <td class="number">Rp ${Number(detail.satuan_harga || 0).toLocaleString('id-ID')}</td>
+            <td class="number">Rp ${Number(detail.subtotal || 0).toLocaleString('id-ID')}</td>
+        </tr>`).join('');
+    const status = stockIn.status === 'Pending' ? 'Pending' : 'Dikonfirmasi';
+
+    return `<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Laporan Stok In ${escapeHtml(stockIn.no_stok_in)}</title>
+    <style>
+        * { box-sizing: border-box; }
+        body { margin: 0; min-height: 100vh; padding: 8px; background: #303030; color: #1f2937; font: 14px Arial, sans-serif; }
+        article { width: min(100%, 210mm); min-height: 297mm; margin: 0 auto 8px; padding: 24mm; background: #fff; box-shadow: 0 2px 5px #0005; }
+        h1 { margin: 0 0 6px; font-size: 24px; }
+        .subtitle { margin: 0 0 28px; color: #6b7280; }
+        .meta { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; margin-bottom: 24px; }
+        .label { display: block; margin-bottom: 5px; color: #6b7280; font-size: 11px; font-weight: 700; text-transform: uppercase; }
+        .value { font-weight: 600; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 11px 9px; border-bottom: 1px solid #e5e7eb; text-align: left; }
+        th { background: #f9fafb; color: #4b5563; font-size: 11px; text-transform: uppercase; }
+        .number { text-align: right; white-space: nowrap; }
+        tfoot td { border-top: 2px solid #d1d5db; border-bottom: 0; font-weight: 700; }
+        @media (max-width: 640px) { body { padding: 8px 0; } article { width: 100%; min-height: 100vh; padding: 24px 16px; } .meta { grid-template-columns: 1fr; gap: 12px; } }
+        @media print {
+            @page { size: A4; margin: 16mm; }
+            body { min-height: 0; padding: 0; background: #fff; }
+            article { width: auto; min-height: 0; margin: 0; padding: 0; box-shadow: none; }
+            thead { display: table-header-group; }
+            tr { break-inside: avoid; }
+        }
+    </style>
+</head>
+<body>
+    <article>
+        <h1>${escapeHtml(translateAppText('Laporan Stok In'))}</h1>
+        <p class="subtitle">${escapeHtml(translateAppText('Rincian transaksi barang masuk'))}</p>
+        <section class="meta">
+            <div><span class="label">${escapeHtml(translateAppText('No. Stok In'))}</span><span class="value">${escapeHtml(stockIn.no_stok_in)}</span></div>
+            <div><span class="label">${escapeHtml(translateAppText('Tanggal'))}</span><span class="value">${escapeHtml(formatStockInDate(stockIn.tanggal))}</span></div>
+            <div><span class="label">${escapeHtml(translateAppText('Supplier'))}</span><span class="value">${escapeHtml(stockIn.nama_supplier || stockIn.kode_supplier || '-')}</span></div>
+            <div><span class="label">${escapeHtml(translateAppText('Status'))}</span><span class="value">${escapeHtml(translateAppText(status))}</span></div>
+        </section>
+        <table>
+            <thead><tr><th>${escapeHtml(translateAppText('Kode Barang'))}</th><th>${escapeHtml(translateAppText('Nama Barang'))}</th><th>${escapeHtml(translateAppText('Qty'))}</th><th class="number">${escapeHtml(translateAppText('Harga Satuan'))}</th><th class="number">${escapeHtml(translateAppText('Subtotal'))}</th></tr></thead>
+            <tbody>${rows || `<tr><td colspan="5">${escapeHtml(translateAppText('Tidak ada rincian barang.'))}</td></tr>`}</tbody>
+            <tfoot><tr><td colspan="4" class="number">${escapeHtml(translateAppText('Grand Total'))}</td><td class="number">Rp ${Number(stockIn.grand_total || 0).toLocaleString('id-ID')}</td></tr></tfoot>
+        </table>
+    </article>
+</body>
+</html>`;
+}
+
+function spreadsheetRow(values, style = '') {
+    return `<Row>${values.map((value, index) => {
+        const isNumeric = typeof value === 'number' && Number.isFinite(value);
+        const type = isNumeric ? 'Number' : 'String';
+        const styleId = style === 'Header'
+            ? ' ss:StyleID="Header"'
+            : style === 'Total' && index === 4
+                ? ' ss:StyleID="Total"'
+                : style === 'Detail' && (index === 3 || index === 4)
+                    ? ' ss:StyleID="Currency"'
+                    : style === 'Detail' && index === 2
+                        ? ' ss:StyleID="Number"'
+                        : '';
+        const content = escapeSpreadsheetValue(value);
+        return `<Cell${styleId}><Data ss:Type="${type}">${content}</Data></Cell>`;
+    }).join('')}</Row>`;
+}
+
+function escapeSpreadsheetValue(value) {
+    return String(value ?? '')
+        .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&apos;');
+}
+
 async function setStockInStatus(noStokIn, status) {
     const action = status === 'Confirmed' ? 'mengonfirmasi' : 'mengembalikan ke Pending';
     if (!window.confirm(translateAppText(`Yakin ${action} stok in ${noStokIn}?`))) return;
@@ -555,7 +815,11 @@ function closeStockInDetail() {
     const modal = document.getElementById('stockInDetailModal');
     if (!modal) return;
     modal.classList.add('hidden');
-    document.body.classList.remove('overflow-hidden');
+    closeStockInReport();
+    currentStockInReport = null;
+    if (document.getElementById('stockInReportModal').classList.contains('hidden')) {
+        document.body.classList.remove('overflow-hidden');
+    }
 }
 
 function showStockInMessage(message, success = false) {

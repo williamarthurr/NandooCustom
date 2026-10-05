@@ -37,3 +37,113 @@
 .tab-content.hidden {
     display: none !important;
 }
+
+.stock-in-report-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: none;
+    padding: 4px;
+    background: #e5e7eb;
+}
+
+.stock-in-report-modal.is-open {
+    display: block;
+}
+
+.stock-in-report-window {
+    display: flex;
+    width: 100%;
+    height: 100%;
+    flex-direction: column;
+    overflow: hidden;
+    border: 1px solid #9ca3af;
+    border-radius: 7px;
+    background: #fff;
+    box-shadow: 0 20px 50px #0004;
+}
+
+.stock-in-report-actions {
+    display: flex;
+    min-height: 38px;
+    flex: 0 0 auto;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 8px;
+    border-bottom: 1px solid #d1d5db;
+    background: #fff;
+}
+
+.stock-in-report-action,
+.stock-in-report-close {
+    border: 1px solid #9ca3af;
+    border-radius: 3px;
+    background: #f3f4f6;
+    padding: 3px 8px;
+    color: #111827;
+    font: 13px Arial, sans-serif;
+    cursor: pointer;
+}
+
+.stock-in-report-action:hover,
+.stock-in-report-close:hover {
+    background: #e5e7eb;
+}
+
+.stock-in-report-close {
+    margin-left: auto;
+    background: #fff;
+    font-size: 16px;
+}
+
+.stock-in-report-viewer {
+    display: flex;
+    min-height: 0;
+    flex: 1 1 auto;
+    flex-direction: column;
+    background: #303030;
+}
+
+.stock-in-report-toolbar {
+    display: flex;
+    height: 44px;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    border-bottom: 1px solid #555;
+    background: #3b3b3b;
+    color: #f3f4f6;
+    font: 13px Arial, sans-serif;
+}
+
+.stock-in-report-toolbar button {
+    min-width: 32px;
+    border: 0;
+    border-radius: 3px;
+    background: transparent;
+    padding: 5px 8px;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+}
+
+.stock-in-report-toolbar button:hover {
+    background: #555;
+}
+
+.stock-in-report-toolbar span {
+    margin-left: 6px;
+    padding-left: 12px;
+    border-left: 1px solid #666;
+}
+
+.stock-in-report-viewer iframe {
+    display: block;
+    width: 100%;
+    min-height: 0;
+    flex: 1 1 auto;
+    border: 0;
+    background: #303030;
+}

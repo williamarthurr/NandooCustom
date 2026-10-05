@@ -31,7 +31,10 @@
             <div class="my-auto w-full max-w-3xl overflow-hidden rounded-2xl bg-white shadow-2xl" onclick="event.stopPropagation()">
                 <div class="flex items-start justify-between border-b border-gray-100 px-6 py-5">
                     <div>
-                        <h3 id="stockInDetailTitle" class="text-lg font-bold text-gray-900">Detail Stok In</h3>
+                        <div class="flex flex-wrap items-center gap-3">
+                            <h3 id="stockInDetailTitle" class="text-lg font-bold text-gray-900">Detail Stok In</h3>
+                            <button id="btnStockInReport" type="button" onclick="openStockInReport()" class="rounded-lg border border-indigo-200 px-3 py-1.5 text-sm font-semibold text-indigo-700 hover:bg-indigo-50">Report</button>
+                        </div>
                         <p id="stockInDetailSubtitle" class="mt-1 text-sm text-gray-500"></p>
                     </div>
                     <button type="button" aria-label="Tutup detail stok in" onclick="closeStockInDetail()" class="ml-4 rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-700">✕</button>
@@ -66,6 +69,27 @@
                         <button id="btnDeleteStockIn" type="button" class="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700">Hapus Stok In</button>
                         <button id="btnToggleStockInStatus" type="button" class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">Konfirmasi Stok In</button>
                     </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="stockInReportModal" class="stock-in-report-modal" role="dialog" aria-modal="true" aria-labelledby="stockInReportTitle" aria-hidden="true">
+            <div class="stock-in-report-window">
+                <div class="stock-in-report-actions">
+                    <h3 id="stockInReportTitle" class="sr-only">Preview Laporan PDF</h3>
+                    <button type="button" onclick="downloadStockInReportXls()" class="stock-in-report-action">Export XLS</button>
+                    <button type="button" onclick="printStockInReport()" class="stock-in-report-action">Export PDF</button>
+                    <button type="button" onclick="emailStockInReport()" class="stock-in-report-action">Send Email</button>
+                    <button type="button" aria-label="Tutup preview laporan" onclick="closeStockInReport()" class="stock-in-report-close">✕</button>
+                </div>
+                <div class="stock-in-report-viewer">
+                    <div class="stock-in-report-toolbar">
+                        <button type="button" aria-label="Perkecil preview" onclick="zoomStockInReport(-0.1)">−</button>
+                        <button type="button" aria-label="Perbesar preview" onclick="zoomStockInReport(0.1)">+</button>
+                        <button type="button" onclick="resetStockInReportZoom()">Fit</button>
+                        <span id="stockInReportPageCount">1 of 1</span>
+                    </div>
+                    <iframe id="stockInReportFrame" title="Pratinjau laporan PDF"></iframe>
                 </div>
             </div>
         </section>

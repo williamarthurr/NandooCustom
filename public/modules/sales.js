@@ -4,6 +4,9 @@
 
 let editingSaleNumber = null;
 let editingSaleStatus = null;
+let currentSalesReport = null;
+let salesReportZoom = 1;
+let salesReportMainZIndex = '';
 
 async function fetchSales() {
     try {
@@ -65,6 +68,7 @@ async function showSalesDetail(noPenjualan) {
         if (!res.ok) throw new Error(result.error || 'Gagal mengambil detail penjualan.');
 
         const sale = result.data;
+        currentSalesReport = sale;
         const detailMessage = document.getElementById('salesDetailMessage');
         detailMessage.textContent = '';
         detailMessage.classList.add('hidden');
@@ -128,6 +132,288 @@ async function showSalesDetail(noPenjualan) {
         console.error('Gagal load detail penjualan:', err);
         showSalesMessage(err.message);
     }
+}
+
+function openSalesReport() {
+    if (!currentSalesReport) {
+        showSalesMessage('Data laporan penjualan tidak tersedia.');
+        return;
+    }
+
+    const modal = document.getElementById('salesReportModal');
+    const main = modal.closest('main');
+    if (main) {
+        salesReportMainZIndex = main.style.zIndex;
+        main.style.zIndex = '1000';
+    }
+    document.getElementById('salesReportFrame').srcdoc = buildSalesReportPreview(currentSalesReport);
+    modal.classList.add('is-open');
+    modal.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('overflow-hidden');
+    salesReportZoom = 1;
+}
+
+function closeSalesReport() {
+    const modal = document.getElementById('salesReportModal');
+    if (!modal) return;
+    modal.classList.remove('is-open');
+    modal.setAttribute('aria-hidden', 'true');
+    const main = modal.closest('main');
+    if (main) main.style.zIndex = salesReportMainZIndex;
+    if (document.getElementById('salesDetailModal').classList.contains('hidden')) {
+        document.body.classList.remove('overflow-hidden');
+    }
+}
+
+function printSalesReport() {
+    const frame = document.getElementById('salesReportFrame');
+    if (!frame.contentWindow) {
+        showSalesMessage('Preview laporan belum siap dicetak.');
+        return;
+    }
+    frame.contentWindow.focus();
+    frame.contentWindow.print();
+}
+
+function zoomSalesReport(change) {
+    salesReportZoom = Math.min(1.5, Math.max(0.6, salesReportZoom + change));
+    applySalesReportZoom();
+}
+
+function resetSalesReportZoom() {
+    salesReportZoom = 1;
+    applySalesReportZoom();
+}
+
+function applySalesReportZoom() {
+    const frame = document.getElementById('salesReportFrame');
+    const report = frame.contentDocument?.body;
+    if (report) report.style.zoom = String(salesReportZoom);
+}
+
+function emailSalesReport() {
+    if (!currentSalesReport) {
+        showSalesMessage('Data laporan penjualan tidak tersedia.');
+        return;
+    }
+
+    const sale = currentSalesReport;
+    const items = (Array.isArray(sale.details) ? sale.details : []).map(detail =>
+        `- ${detail.kode_barang} | ${detail.nama_barang || '-'} | ${detail.qty} ${detail.satuan || ''} | Rp ${Number(detail.subtotal || 0).toLocaleString('id-ID')}`
+    );
+    const body = [
+        `Laporan Penjualan ${sale.no_penjualan}`,
+        `Tanggal: ${formatStockInDate(sale.tanggal)}`,
+        `Pelanggan: ${sale.nama_pelanggan || sale.kode_pelanggan || '-'}`,
+        `Status: ${sale.status}`,
+        '',
+        'Rincian barang:',
+        ...items,
+        '',
+        `Grand Total: Rp ${Number(sale.grand_total || 0).toLocaleString('id-ID')}`,
+        '',
+        'Barang yang diterima sudah sesuai dengan nota.',
+        '',
+        'Penerima: ____________________'
+    ].join('\n');
+    const subject = `Laporan Penjualan ${sale.no_penjualan}`;
+    window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+}
+
+function downloadSalesReportXls() {
+    if (!currentSalesReport) {
+        showSalesMessage('Data laporan penjualan tidak tersedia.');
+        return;
+    }
+
+    const sale = currentSalesReport;
+    const rows = [
+        salesSpreadsheetRow([translateAppText('Laporan Penjualan').toUpperCase()], 'Title'),
+        salesSpreadsheetRow([
+            translateAppText('No. Penjualan'),
+            sale.no_penjualan,
+            translateAppText('Tanggal'),
+            formatStockInDate(sale.tanggal)
+        ]),
+        salesSpreadsheetRow([
+            translateAppText('Pelanggan'),
+            sale.nama_pelanggan || sale.kode_pelanggan || '-',
+            translateAppText('Status'),
+            translateAppText(sale.status === 'Pending' ? 'Pending' : 'Dikonfirmasi')
+        ]),
+        salesSpreadsheetRow(['']),
+        salesSpreadsheetRow([
+            translateAppText('Kode Barang'),
+            translateAppText('Nama Barang'),
+            translateAppText('No. Stok In'),
+            translateAppText('Qty'),
+            translateAppText('Harga Satuan'),
+            translateAppText('Subtotal')
+        ], 'Header')
+    ];
+
+    (Array.isArray(sale.details) ? sale.details : []).forEach(detail => {
+        rows.push(salesSpreadsheetRow([
+            detail.kode_barang,
+            detail.nama_barang || '-',
+            detail.no_stok_in || 'Belum ditentukan',
+            Number(detail.qty || 0),
+            Number(detail.satuan_harga || 0),
+            Number(detail.subtotal || 0)
+        ], 'Detail'));
+    });
+    rows.push(salesSpreadsheetRow([
+        '', '', '', '', translateAppText('Grand Total'), Number(sale.grand_total || 0)
+    ], 'Total'));
+    rows.push(salesSpreadsheetRow([translateAppText('Barang yang diterima sudah sesuai dengan nota.')]));
+    rows.push(salesSpreadsheetRow([
+        translateAppText('Penerima'),
+        '',
+        '',
+        '',
+        '',
+        sale.nama_pelanggan || ''
+    ]));
+
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<?mso-application progid="Excel.Sheet"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
+    <Styles>
+        <Style ss:ID="Title"><Font ss:Bold="1" ss:Size="16"/></Style>
+        <Style ss:ID="Header"><Font ss:Bold="1" ss:Color="#FFFFFF"/><Interior ss:Color="#4338CA" ss:Pattern="Solid"/></Style>
+        <Style ss:ID="Number"><NumberFormat ss:Format="#,##0"/></Style>
+        <Style ss:ID="Currency"><NumberFormat ss:Format="&quot;Rp&quot; #,##0"/></Style>
+        <Style ss:ID="Total"><Font ss:Bold="1"/><NumberFormat ss:Format="&quot;Rp&quot; #,##0"/></Style>
+    </Styles>
+    <Worksheet ss:Name="Penjualan"><Table>${rows.join('')}</Table></Worksheet>
+</Workbook>`;
+    const blob = new Blob([`\uFEFF${xml}`], { type: 'application/vnd.ms-excel;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    const safeNumber = String(sale.no_penjualan || 'penjualan')
+        .replace(/[<>:"/\\|?*]+/g, '_')
+        .replace(/^\.+|\.+$/g, '') || 'penjualan';
+    link.href = url;
+    link.download = `Laporan-Penjualan-${safeNumber}.xls`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function buildSalesReportPreview(sale) {
+    const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, character => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;'
+    })[character]);
+    const details = Array.isArray(sale.details) ? sale.details : [];
+    const rows = details.map(detail => `
+        <tr>
+            <td>${escapeHtml(detail.kode_barang)}</td>
+            <td>${escapeHtml(detail.nama_barang || '-')}</td>
+            <td>${escapeHtml(detail.no_stok_in || 'Belum ditentukan')}</td>
+            <td>${escapeHtml(`${detail.qty} ${detail.satuan || ''}`.trim())}</td>
+            <td class="number">Rp ${Number(detail.satuan_harga || 0).toLocaleString('id-ID')}</td>
+            <td class="number">Rp ${Number(detail.subtotal || 0).toLocaleString('id-ID')}</td>
+        </tr>`).join('');
+    const status = sale.status === 'Pending' ? 'Pending' : 'Dikonfirmasi';
+
+    return `<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Laporan Penjualan ${escapeHtml(sale.no_penjualan)}</title>
+    <style>
+        * { box-sizing: border-box; }
+        body { margin: 0; min-height: 100vh; padding: 8px; background: #303030; color: #1f2937; font: 14px Arial, sans-serif; }
+        article { display: flex; width: min(100%, 210mm); min-height: 297mm; flex-direction: column; margin: 0 auto 8px; padding: 24mm; background: #fff; box-shadow: 0 2px 5px #0005; }
+        h1 { margin: 0 0 6px; font-size: 24px; }
+        .subtitle { margin: 0 0 28px; color: #6b7280; }
+        .meta { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; margin-bottom: 24px; }
+        .label { display: block; margin-bottom: 5px; color: #6b7280; font-size: 11px; font-weight: 700; text-transform: uppercase; }
+        .value { font-weight: 600; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 10px 8px; border-bottom: 1px solid #e5e7eb; text-align: left; }
+        th { background: #f9fafb; color: #4b5563; font-size: 10px; text-transform: uppercase; }
+        .number { text-align: right; white-space: nowrap; }
+        tfoot td { border-top: 2px solid #d1d5db; border-bottom: 0; font-weight: 700; }
+        .receipt-confirmation { margin-top: 12px; break-inside: avoid; }
+        .receipt-note { margin: 0 0 12px; font-size: 14px; line-height: 1.4; }
+        .signature { width: 42%; margin-left: auto; text-align: center; }
+        .signature-space { height: 18mm; }
+        .signature-name { min-height: 24px; border-bottom: 1px solid #374151; }
+        .signature-label { margin-top: 7px; }
+        @media (max-width: 640px) { body { padding: 8px 0; } article { width: 100%; min-height: 100vh; padding: 24px 16px; } .meta { grid-template-columns: 1fr; gap: 12px; } .signature { width: 65%; } }
+        @media print {
+            @page { size: A4; margin: 16mm; }
+            body { min-height: 0; padding: 0; background: #fff; }
+            article { width: auto; min-height: 0; margin: 0; padding: 0; box-shadow: none; }
+            thead { display: table-header-group; }
+            tr { break-inside: avoid; }
+            .receipt-confirmation { break-inside: avoid; margin-top: 10px; }
+        }
+    </style>
+</head>
+<body>
+    <article>
+        <h1>${escapeHtml(translateAppText('Laporan Penjualan'))}</h1>
+        <p class="subtitle">${escapeHtml(translateAppText('Rincian transaksi penjualan'))}</p>
+        <section class="meta">
+            <div><span class="label">${escapeHtml(translateAppText('No. Penjualan'))}</span><span class="value">${escapeHtml(sale.no_penjualan)}</span></div>
+            <div><span class="label">${escapeHtml(translateAppText('Tanggal'))}</span><span class="value">${escapeHtml(formatStockInDate(sale.tanggal))}</span></div>
+            <div><span class="label">${escapeHtml(translateAppText('Pelanggan'))}</span><span class="value">${escapeHtml(sale.nama_pelanggan || sale.kode_pelanggan || '-')}</span></div>
+            <div><span class="label">${escapeHtml(translateAppText('Status'))}</span><span class="value">${escapeHtml(translateAppText(status))}</span></div>
+        </section>
+        <table>
+            <thead><tr><th>${escapeHtml(translateAppText('Kode Barang'))}</th><th>${escapeHtml(translateAppText('Nama Barang'))}</th><th>${escapeHtml(translateAppText('No. Stok In'))}</th><th>${escapeHtml(translateAppText('Qty'))}</th><th class="number">${escapeHtml(translateAppText('Harga Satuan'))}</th><th class="number">${escapeHtml(translateAppText('Subtotal'))}</th></tr></thead>
+            <tbody>${rows || `<tr><td colspan="6">${escapeHtml(translateAppText('Tidak ada rincian barang.'))}</td></tr>`}</tbody>
+            <tfoot><tr><td colspan="5" class="number">${escapeHtml(translateAppText('Grand Total'))}</td><td class="number">Rp ${Number(sale.grand_total || 0).toLocaleString('id-ID')}</td></tr></tfoot>
+        </table>
+        <section class="receipt-confirmation">
+            <p class="receipt-note">${escapeHtml(translateAppText('Barang yang diterima sudah sesuai dengan nota.'))}</p>
+            <div class="signature">
+                <div>${escapeHtml(translateAppText('Penerima'))}</div>
+                <div class="signature-space"></div>
+                <div class="signature-name"></div>
+                <div class="signature-label">${escapeHtml(sale.nama_pelanggan || '')}</div>
+            </div>
+        </section>
+    </article>
+</body>
+</html>`;
+}
+
+function salesSpreadsheetRow(values, style = '') {
+    return `<Row>${values.map((value, index) => {
+        const isNumeric = typeof value === 'number' && Number.isFinite(value);
+        const type = isNumeric ? 'Number' : 'String';
+        const styleId = style === 'Header'
+            ? ' ss:StyleID="Header"'
+            : style === 'Title'
+                ? ' ss:StyleID="Title"'
+                : style === 'Total' && index === 5
+                    ? ' ss:StyleID="Total"'
+                    : style === 'Detail' && (index === 4 || index === 5)
+                        ? ' ss:StyleID="Currency"'
+                        : style === 'Detail' && index === 3
+                            ? ' ss:StyleID="Number"'
+                            : '';
+        return `<Cell${styleId}><Data ss:Type="${type}">${escapeSalesSpreadsheetValue(value)}</Data></Cell>`;
+    }).join('')}</Row>`;
+}
+
+function escapeSalesSpreadsheetValue(value) {
+    return String(value ?? '')
+        .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&apos;');
 }
 
 async function setSaleStatus(noPenjualan, status) {
@@ -195,6 +481,8 @@ function closeSalesDetail() {
     const modal = document.getElementById('salesDetailModal');
     if (!modal) return;
     modal.classList.add('hidden');
+    closeSalesReport();
+    currentSalesReport = null;
     document.body.classList.remove('overflow-hidden');
 }
 

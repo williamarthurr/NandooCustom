@@ -31,7 +31,10 @@
             <div class="my-auto w-full max-w-3xl overflow-hidden rounded-2xl bg-white shadow-2xl" onclick="event.stopPropagation()">
                 <div class="flex items-start justify-between border-b border-gray-100 px-6 py-5">
                     <div>
-                        <h3 id="salesDetailTitle" class="text-lg font-bold text-gray-900">Detail Penjualan</h3>
+                        <div class="flex flex-wrap items-center gap-3">
+                            <h3 id="salesDetailTitle" class="text-lg font-bold text-gray-900">Detail Penjualan</h3>
+                            <button id="btnSalesReport" type="button" onclick="openSalesReport()" class="rounded-lg border border-indigo-200 px-3 py-1.5 text-sm font-semibold text-indigo-700 hover:bg-indigo-50">Report</button>
+                        </div>
                         <p id="salesDetailSubtitle" class="mt-1 text-sm text-gray-500"></p>
                     </div>
                     <button type="button" aria-label="Tutup detail penjualan" onclick="closeSalesDetail()" class="ml-4 rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-700">✕</button>
@@ -66,6 +69,27 @@
                             <button id="btnDeleteSale" type="button" class="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700">Hapus Penjualan</button>
                             <button id="btnToggleSaleStatus" type="button" class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">Konfirmasi Penjualan</button>
                     </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="salesReportModal" class="stock-in-report-modal" role="dialog" aria-modal="true" aria-labelledby="salesReportTitle" aria-hidden="true">
+            <div class="stock-in-report-window">
+                <div class="stock-in-report-actions">
+                    <h3 id="salesReportTitle" class="sr-only">Preview Laporan PDF</h3>
+                    <button type="button" onclick="downloadSalesReportXls()" class="stock-in-report-action">Export XLS</button>
+                    <button type="button" onclick="printSalesReport()" class="stock-in-report-action">Export PDF</button>
+                    <button type="button" onclick="emailSalesReport()" class="stock-in-report-action">Send Email</button>
+                    <button type="button" aria-label="Tutup preview laporan" onclick="closeSalesReport()" class="stock-in-report-close">✕</button>
+                </div>
+                <div class="stock-in-report-viewer">
+                    <div class="stock-in-report-toolbar">
+                        <button type="button" aria-label="Perkecil preview" onclick="zoomSalesReport(-0.1)">−</button>
+                        <button type="button" aria-label="Perbesar preview" onclick="zoomSalesReport(0.1)">+</button>
+                        <button type="button" onclick="resetSalesReportZoom()">Fit</button>
+                        <span id="salesReportPageCount">1 of 1</span>
+                    </div>
+                    <iframe id="salesReportFrame" title="Pratinjau laporan penjualan"></iframe>
                 </div>
             </div>
         </section>
