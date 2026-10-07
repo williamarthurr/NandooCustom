@@ -32,9 +32,11 @@ function initializeDashboard() {
         userRoleEl.textContent = user.role || 'User';
     }
 
-    if (String(user.role || '').toLowerCase() !== 'admin') {
-        const masterContainer = document.getElementById('masterContainer');
-        if (masterContainer) masterContainer.classList.add('hidden');
+    const isAdmin = String(user.role || '').toLowerCase() === 'admin';
+    const masterContainer = document.getElementById('masterContainer');
+    if (masterContainer) masterContainer.classList.toggle('hidden', !isAdmin);
+
+    if (!isAdmin) {
         const btnAddMasterUser = document.getElementById('btnAddMasterUser');
         if (btnAddMasterUser) btnAddMasterUser.classList.add('hidden');
     }
