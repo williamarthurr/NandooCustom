@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const path = require('node:path');
 require('dotenv').config();
 
 const app = express();
@@ -7,7 +8,10 @@ const app = express();
 // Middlewares
 app.use(cors());
 app.use(express.json());
-app.use(express.static('public'));
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+app.use(express.static(path.join(__dirname, 'public')));
 
 // Import Routes
 const authRoutes = require('./routes/authRoutes');
@@ -26,11 +30,6 @@ app.use('/api/inventory', inventoryRoutes);
 app.use('/api/penjualan', penjualanRoutes);
 app.use('/api/stokin', stokinRoutes);
 app.use('/api/users', userRoutes);
-
-// Redirect Root ke Login
-app.get('/', (req, res) => {
-    res.redirect('/login.html');
-});
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {

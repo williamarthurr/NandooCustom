@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#080d1c">
+    <title>Pilih Aplikasi - nandoApp</title>
+    <link rel="stylesheet" href="tailwind.css">
+    <style>
+        :root {
+            color-scheme: dark;
+            font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            background: #080d1c;
+            color: #e2e8f0;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            position: relative;
+            display: grid;
+            min-height: 100vh;
+            margin: 0;
+            overflow: hidden;
+            place-items: center;
+            background:
+                radial-gradient(ellipse at 17% 20%, rgba(59, 130, 246, 0.18), transparent 40%),
+                radial-gradient(ellipse at 84% 78%, rgba(129, 140, 248, 0.13), transparent 38%),
+                linear-gradient(135deg, #080d1c, #111a31 52%, #090e20);
+        }
+
+        .stars {
+            position: fixed;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+
+        .portal {
+            position: relative;
+            z-index: 1;
+            width: min(100% - 32px, 860px);
+            padding: clamp(28px, 6vw, 56px);
+            border: 1px solid rgba(148, 163, 184, 0.2);
+            border-radius: 28px;
+            background: rgba(15, 23, 42, 0.78);
+            box-shadow: 0 28px 90px rgba(0, 0, 0, 0.35);
+            backdrop-filter: blur(16px);
+        }
+
+        .eyebrow {
+            margin: 0 0 10px;
+            color: #93c5fd;
+            font-family: "Segoe Script", "Brush Script MT", cursive;
+            font-size: clamp(22px, 4vw, 30px);
+            font-weight: 500;
+            text-align: center;
+        }
+
+        h1 {
+            margin: 0;
+            color: #f8fafc;
+            font-size: clamp(30px, 6vw, 44px);
+            letter-spacing: -0.04em;
+            text-align: center;
+        }
+
+        .intro {
+            max-width: 480px;
+            margin: 12px auto 34px;
+            color: #aebbd0;
+            font-size: 15px;
+            line-height: 1.7;
+            text-align: center;
+        }
+
+        .apps {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 16px;
+        }
+
+        .app-card {
+            display: flex;
+            min-height: 184px;
+            flex-direction: column;
+            align-items: flex-start;
+            padding: 24px;
+            border: 1px solid rgba(148, 163, 184, 0.22);
+            border-radius: 20px;
+            background: rgba(30, 41, 59, 0.56);
+            color: inherit;
+            text-align: left;
+            text-decoration: none;
+            transition: transform 180ms ease, border-color 180ms ease, background 180ms ease;
+        }
+
+        .app-card:hover,
+        .app-card:focus-visible {
+            transform: translateY(-3px);
+            border-color: rgba(147, 197, 253, 0.6);
+            background: rgba(37, 52, 77, 0.78);
+            outline: none;
+        }
+
+        .app-icon {
+            display: grid;
+            width: 44px;
+            height: 44px;
+            margin-bottom: 20px;
+            place-items: center;
+            border: 1px solid rgba(147, 197, 253, 0.26);
+            border-radius: 14px;
+            background: rgba(59, 130, 246, 0.16);
+            color: #bfdbfe;
+            font-size: 20px;
+        }
+
+        .app-card strong {
+            color: #f8fafc;
+            font-size: 18px;
+        }
+
+        .splash {
+            position: fixed;
+            inset: 0;
+            z-index: 2;
+            display: grid;
+            place-items: center;
+            padding: 24px;
+            background:
+                radial-gradient(ellipse at 50% 42%, rgba(59, 130, 246, 0.2), transparent 40%),
+                linear-gradient(135deg, #080d1c, #111a31 52%, #090e20);
+            opacity: 1;
+            transition: opacity 220ms ease;
+        }
+
+        .splash[hidden] { display: none; }
+        .splash.is-leaving { opacity: 0; }
+        body.is-launching { overflow: hidden; }
+
+        .splash-content {
+            display: grid;
+            justify-items: center;
+            text-align: center;
+            animation: splash-arrive 500ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+        }
+
+        .splash-icon {
+            display: grid;
+            width: 76px;
+            height: 76px;
+            margin-bottom: 24px;
+            place-items: center;
+            border: 1px solid rgba(147, 197, 253, 0.35);
+            border-radius: 24px;
+            background: rgba(59, 130, 246, 0.18);
+            box-shadow: 0 0 50px rgba(59, 130, 246, 0.2);
+            color: #bfdbfe;
+            font-size: 36px;
+        }
+
+        .splash-hello {
+            margin: 0 0 8px;
+            color: #93c5fd;
+            font-family: "Segoe Script", "Brush Script MT", cursive;
+            font-size: 24px;
+        }
+
+        .splash-content h2 {
+            margin: 0;
+            color: #f8fafc;
+            font-size: clamp(26px, 6vw, 38px);
+        }
+
+        .splash-status {
+            margin: 12px 0 0;
+            color: #aebbd0;
+            font-size: 13px;
+        }
+
+        .splash-loader {
+            width: 34px;
+            height: 34px;
+            margin-top: 28px;
+            border: 3px solid rgba(147, 197, 253, 0.2);
+            border-top-color: #60a5fa;
+            border-radius: 50%;
+            animation: splash-spin 800ms linear infinite;
+        }
+
+        @keyframes splash-arrive {
+            from { opacity: 0; transform: translateY(12px) scale(0.97); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        @keyframes splash-spin {
+            to { transform: rotate(360deg); }
+        }
+
+        @media (max-width: 560px) {
+            body { overflow: auto; }
+            .portal { padding: 28px 20px; }
+            .apps { grid-template-columns: 1fr; }
+            .app-card { min-height: 150px; }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+        }
+    </style>
+</head>
+<body>
+    <canvas class="stars" aria-hidden="true"></canvas>
+    <main class="portal">
+        <p class="eyebrow">Hello</p>
+        <h1>Semoga hari mu bahagia</h1>
+        <p class="intro">Pilih aplikasi yang ingin kamu gunakan.</p>
+        <nav class="apps" aria-label="Daftar aplikasi">
+            <a class="app-card" href="/login.html" data-splash-icon="✦">
+                <span class="app-icon" aria-hidden="true">✦</span>
+                <strong>nandoApp</strong>
+            </a>
+            <a class="app-card" href="/custom-tools.html" data-splash-icon="⌘">
+                <span class="app-icon" aria-hidden="true">⌘</span>
+                <strong>Custom Utility</strong>
+            </a>
+        </nav>
+    </main>
+    <div class="splash" id="appSplash" role="status" aria-live="polite" aria-label="Menyiapkan aplikasi" hidden>
+        <div class="splash-content">
+            <span class="splash-icon" id="splashIcon" aria-hidden="true"></span>
+            <p class="splash-hello">Hello</p>
+            <h2 id="splashTitle"></h2>
+            <p class="splash-status">Sedang menyiapkan aplikasi...</p>
+            <span class="splash-loader" aria-hidden="true"></span>
+        </div>
+    </div>
+    <script>
+        const canvas = document.querySelector('.stars');
+        const context = canvas.getContext('2d');
+        const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        const splash = document.querySelector('#appSplash');
+        let launchTimer;
+        let stars = [];
+        let frame;
+
+        document.querySelectorAll('.app-card').forEach((card) => {
+            card.addEventListener('click', (event) => {
+                if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+                event.preventDefault();
+                if (launchTimer) return;
+
+                const title = card.querySelector('strong').textContent.trim();
+                document.querySelector('#splashTitle').textContent = title;
+                document.querySelector('#splashIcon').textContent = card.dataset.splashIcon;
+                splash.hidden = false;
+                document.body.classList.add('is-launching');
+                launchTimer = window.setTimeout(() => {
+                    splash.classList.add('is-leaving');
+                    window.setTimeout(() => window.location.assign(card.href), 220);
+                }, reduceMotion ? 120 : 1050);
+            });
+        });
+
+        function resizeStars() {
+            const scale = Math.min(window.devicePixelRatio || 1, 2);
+            canvas.width = Math.round(window.innerWidth * scale);
+            canvas.height = Math.round(window.innerHeight * scale);
+            context.setTransform(scale, 0, 0, scale, 0, 0);
+            stars = Array.from(
+                { length: Math.min(90, Math.max(35, Math.floor(window.innerWidth * window.innerHeight / 16000))) },
+                () => ({
+                    x: Math.random() * window.innerWidth,
+                    y: Math.random() * window.innerHeight,
+                    radius: 0.5 + Math.random() * 0.8,
+                    phase: Math.random() * Math.PI * 2
+                })
+            );
+            drawStars(false);
+            if (!reduceMotion && !frame) frame = requestAnimationFrame(animateStars);
+        }
+
+        function drawStars(animate) {
+            context.clearRect(0, 0, window.innerWidth, window.innerHeight);
+            for (const star of stars) {
+                if (animate) star.phase += 0.012;
+                context.beginPath();
+                context.arc(star.x, star.y, star.radius, 0, Math.PI * 2);
+                context.fillStyle = `rgba(191, 219, 254, ${0.25 + (Math.sin(star.phase) + 1) * 0.2})`;
+                context.fill();
+            }
+        }
+
+        function animateStars() {
+            drawStars(true);
+            frame = requestAnimationFrame(animateStars);
+        }
+
+        window.addEventListener('resize', resizeStars);
+        resizeStars();
+    </script>
+</body>
+</html>

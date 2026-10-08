@@ -4,9 +4,11 @@
   "description": "",
   "main": "app.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "npm run test:custom-tools",
     "dev": "nodemon app.js",
     "start": "node app.js",
+    "build:custom-tools": "vite build --config \"CUSTOM TOOLS/vite.config.mjs\"",
+    "test:custom-tools": "node --test \"CUSTOM TOOLS/web/operations.test.mjs\"",
     "build:css": "tailwindcss -i ./tailwind.input.css -o ./public/tailwind.css --minify",
     "watch:css": "tailwindcss -i ./tailwind.input.css -o ./public/tailwind.css --watch"
   },
@@ -20,10 +22,18 @@
     "dotenv": "^18.0.5",
     "express": "^5.2.1",
     "jsonwebtoken": "^9.0.3",
-    "mysql2": "^3.24.5"
+    "mysql2": "^3.24.5",
+    "docx": "^9.5.1",
+    "jsbarcode": "^3.12.1",
+    "jszip": "^3.10.1",
+    "pdf-lib": "^1.17.1",
+    "pdfjs-dist": "^6.2.108",
+    "qrcode": "^1.5.4",
+    "xlsx-js-style": "^1.2.0"
   },
   "devDependencies": {
     "nodemon": "^3.1.14",
-    "tailwindcss": "^3.4.19"
+    "tailwindcss": "^3.4.19",
+    "vite": "^7.1.12"
   }
 }

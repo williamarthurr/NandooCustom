@@ -11,8 +11,9 @@
             isolation: isolate;
             overflow: hidden;
             background:
-                radial-gradient(ellipse at 15% 85%, rgba(203, 213, 225, 0.65), transparent 48%),
-                linear-gradient(135deg, #f8fafc, #e2e8f0);
+                radial-gradient(ellipse at 18% 24%, rgba(59, 130, 246, 0.2), transparent 42%),
+                radial-gradient(ellipse at 82% 76%, rgba(129, 140, 248, 0.14), transparent 40%),
+                linear-gradient(135deg, #080d1c, #111a31 52%, #090e20);
         }
 
         .login-particles {
@@ -22,6 +23,227 @@
             pointer-events: none;
             width: 100%;
             height: 100%;
+        }
+
+        .login-orbit {
+            position: absolute;
+            z-index: 1;
+            width: min(82vw, 620px);
+            height: min(72vh, 500px);
+            min-height: 360px;
+            border: 1px solid rgba(147, 197, 253, 0.2);
+            border-radius: 50%;
+            pointer-events: none;
+            animation: orbit-rotate 28s linear infinite;
+        }
+
+        .login-orbit::after {
+            position: absolute;
+            top: 50%;
+            left: 0;
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: #bfdbfe;
+            box-shadow: 0 0 10px 2px rgba(96, 165, 250, 0.65);
+            content: "";
+            transform: translate(-50%, -50%);
+        }
+
+        .login-orbit--crossing {
+            width: min(74vw, 560px);
+            height: min(86vh, 600px);
+            min-height: 400px;
+            border-color: rgba(196, 181, 253, 0.16);
+            animation: orbit-rotate-reverse 36s linear infinite;
+        }
+
+        .login-orbit--crossing::after {
+            width: 6px;
+            height: 6px;
+            background: #ddd6fe;
+            box-shadow: 0 0 12px 3px rgba(167, 139, 250, 0.7);
+        }
+
+        @keyframes orbit-rotate {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        @keyframes orbit-rotate-reverse {
+            to {
+                transform: rotate(-360deg);
+            }
+        }
+
+        @media (max-width: 480px) {
+            .login-orbit {
+                width: 104vw;
+                height: 400px;
+                min-height: 0;
+            }
+
+            .login-orbit--crossing {
+                width: 92vw;
+                height: 470px;
+                min-height: 0;
+            }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .login-orbit,
+            .login-orbit--crossing {
+                animation: none;
+            }
+        }
+
+        .login-splash {
+            position: fixed;
+            inset: 0;
+            z-index: 50;
+            display: grid;
+            place-items: center;
+            padding: 24px;
+            background: rgba(6, 10, 24, 0.88);
+            color: #f8fafc;
+            opacity: 0;
+            visibility: hidden;
+            backdrop-filter: blur(12px);
+            transition: opacity 350ms ease, visibility 350ms ease;
+        }
+
+        .login-splash.is-visible {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .login-splash__content {
+            text-align: center;
+            animation: splash-arrive 500ms ease both;
+        }
+
+        .login-splash__mark {
+            position: relative;
+            display: block;
+            width: 72px;
+            height: 72px;
+            margin: 0 auto 24px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(96, 165, 250, 0.22), transparent 68%);
+        }
+
+        .login-splash__mark::before,
+        .login-splash__mark::after {
+            position: absolute;
+            inset: 12px 0;
+            border: 1px solid rgba(191, 219, 254, 0.55);
+            border-radius: 50%;
+            content: "";
+            transform: rotate(-32deg);
+        }
+
+        .login-splash__mark::before {
+            border-color: rgba(196, 181, 253, 0.42);
+            transform: rotate(32deg);
+        }
+
+        .login-splash__planet {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 11px;
+            height: 11px;
+            border-radius: 50%;
+            background: #bfdbfe;
+            box-shadow: 0 0 16px 4px rgba(96, 165, 250, 0.55);
+            transform: translate(-50%, -50%);
+        }
+
+        .login-splash__satellite {
+            position: absolute;
+            top: 50%;
+            left: 0;
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: #ddd6fe;
+            box-shadow: 0 0 12px 3px rgba(167, 139, 250, 0.7);
+            transform: translate(-50%, -50%);
+            animation: splash-satellite-orbit 5s linear infinite;
+        }
+
+        .login-splash__title {
+            margin: 0;
+            font-size: clamp(24px, 5vw, 32px);
+            font-weight: 700;
+            letter-spacing: -0.02em;
+        }
+
+        .login-splash__message {
+            margin: 10px 0 0;
+            color: #cbd5e1;
+            font-size: 14px;
+        }
+
+        .login-splash__loading {
+            display: flex;
+            justify-content: center;
+            gap: 6px;
+            margin-top: 28px;
+        }
+
+        .login-splash__loading span {
+            width: 5px;
+            height: 5px;
+            border-radius: 50%;
+            background: #93c5fd;
+            animation: splash-pulse 1s ease-in-out infinite alternate;
+        }
+
+        .login-splash__loading span:nth-child(2) {
+            animation-delay: 150ms;
+        }
+
+        .login-splash__loading span:nth-child(3) {
+            animation-delay: 300ms;
+        }
+
+        @keyframes splash-arrive {
+            from {
+                opacity: 0;
+                transform: translateY(12px) scale(0.98);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        @keyframes splash-satellite-orbit {
+            to {
+                transform: rotate(360deg) translateX(36px) rotate(-360deg);
+            }
+        }
+
+        @keyframes splash-pulse {
+            to {
+                opacity: 0.3;
+                transform: scale(0.7);
+            }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .login-splash,
+            .login-splash__content {
+                animation: none;
+                transition: none;
+            }
+
+            .login-splash__satellite,
+            .login-splash__loading span {
+                animation: none;
+            }
         }
 
         .tech-support {
@@ -67,6 +289,8 @@
 </head>
 <body class="login-page flex items-center justify-center min-h-screen">
     <canvas id="loginParticles" class="login-particles" aria-hidden="true"></canvas>
+    <div class="login-orbit" aria-hidden="true"></div>
+    <div class="login-orbit login-orbit--crossing" aria-hidden="true"></div>
 
     <div id="loginCard" class="relative z-10 bg-white/90 backdrop-blur-sm p-8 rounded-xl shadow-lg w-full max-w-md border border-gray-200">
         <!-- Header / Logo -->
@@ -105,6 +329,20 @@
         <div>Email: <a href="mailto:itfernandoo@gmail.com">itfernandoo@gmail.com</a></div>
     </aside>
 
+    <div id="loginSplash" class="login-splash" aria-hidden="true">
+        <div class="login-splash__content" role="status" aria-live="polite">
+            <div class="login-splash__mark" aria-hidden="true">
+                <span class="login-splash__planet"></span>
+                <span class="login-splash__satellite"></span>
+            </div>
+            <h2 id="loginSplashTitle" class="login-splash__title">Selamat datang</h2>
+            <p class="login-splash__message">Menyiapkan ruang kerjamu...</p>
+            <div class="login-splash__loading" aria-hidden="true">
+                <span></span><span></span><span></span>
+            </div>
+        </div>
+    </div>
+
     
     <!-- Script Integrasi API -->
     <script>
@@ -112,13 +350,11 @@
         const particleCanvas = document.getElementById('loginParticles');
         const particleContext = particleCanvas.getContext('2d');
         const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-        const loginCard = document.getElementById('loginCard');
         const particles = [];
-        const pointer = { x: -1000, y: -1000, active: false };
         const particleColors = [
-            'rgba(96, 165, 250, 0.58)',
-            'rgba(129, 140, 248, 0.48)',
-            'rgba(148, 163, 184, 0.52)'
+            '148, 163, 184',
+            '191, 219, 254',
+            '199, 210, 254'
         ];
         let particleFrame = null;
 
@@ -128,35 +364,17 @@
             particleCanvas.height = Math.round(window.innerHeight * pixelRatio);
             particleContext.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
 
-            const particleCount = Math.min(560, Math.max(180, Math.floor(window.innerWidth * window.innerHeight / 2400)));
-            const goldenAngle = Math.PI * (3 - Math.sqrt(5));
+            const particleCount = Math.min(100, Math.max(45, Math.floor(window.innerWidth * window.innerHeight / 14000)));
             particles.length = 0;
             for (let i = 0; i < particleCount; i++) {
-                const angle = i * goldenAngle;
                 particles.push({
-                    x: 0,
-                    y: 0,
-                    angle,
-                    bandPhase: Math.random() * Math.PI * 2,
-                    bandCycleSpeed: 0.012 + Math.random() * 0.006,
-                    orbitSpeed: 0.0025 + Math.random() * 0.002,
-                    dashLength: 3.5 + Math.random() * 3.5,
-                    dashWidth: 1.8 + Math.random() * 1,
+                    x: Math.random() * window.innerWidth,
+                    y: Math.random() * window.innerHeight,
+                    radius: 0.5 + Math.random() * 0.8,
                     twinklePhase: Math.random() * Math.PI * 2,
-                    twinkleSpeed: 0.025 + Math.random() * 0.045,
+                    twinkleSpeed: 0.008 + Math.random() * 0.018,
                     color: particleColors[Math.floor(Math.random() * particleColors.length)]
                 });
-            }
-            const cardBounds = loginCard.getBoundingClientRect();
-            const centerX = cardBounds.left + cardBounds.width / 2;
-            const centerY = cardBounds.top + cardBounds.height / 2;
-            for (const particle of particles) {
-                const bandRatio = 0.2 + 0.78 * (0.5 + 0.5 * Math.cos(particle.bandPhase));
-                const band = 20 + getMaximumOrbitBand(particle.angle, cardBounds) * bandRatio;
-                const orbitX = cardBounds.width / 2 + band;
-                const orbitY = cardBounds.height / 2 + band;
-                particle.x = centerX + Math.cos(particle.angle) * orbitX;
-                particle.y = centerY + Math.sin(particle.angle) * orbitY;
             }
             drawParticles(false);
             if (!reducedMotion && particleFrame === null) {
@@ -166,76 +384,14 @@
 
         function drawParticles(animate) {
             particleContext.clearRect(0, 0, window.innerWidth, window.innerHeight);
-            const cardBounds = loginCard.getBoundingClientRect();
-            const centerX = cardBounds.left + cardBounds.width / 2;
-            const centerY = cardBounds.top + cardBounds.height / 2;
             for (const particle of particles) {
-                if (animate) particle.angle += particle.orbitSpeed;
-                if (animate) particle.bandPhase += particle.bandCycleSpeed;
                 if (animate) particle.twinklePhase += particle.twinkleSpeed;
-
-                const bandRatio = 0.2 + 0.78 * (0.5 + 0.5 * Math.cos(particle.bandPhase));
-                const band = 20 + getMaximumOrbitBand(particle.angle, cardBounds) * bandRatio;
-                const orbitX = cardBounds.width / 2 + band;
-                const orbitY = cardBounds.height / 2 + band;
-                const orbitTargetX = centerX + Math.cos(particle.angle) * orbitX;
-                const orbitTargetY = centerY + Math.sin(particle.angle) * orbitY;
-                let targetX = orbitTargetX;
-                let targetY = orbitTargetY;
-
-                if (pointer.active) {
-                    const dx = orbitTargetX - pointer.x;
-                    const dy = orbitTargetY - pointer.y;
-                    const distance = Math.hypot(dx, dy);
-                    const spreadRadius = 230;
-                    if (distance < spreadRadius && distance > 0) {
-                        const spread = (1 - distance / spreadRadius) * 58;
-                        targetX += (dx / distance) * spread;
-                        targetY += (dy / distance) * spread;
-                    }
-                }
-
-                const followSpeed = reducedMotion ? 1 : 0.045;
-                particle.x += (targetX - particle.x) * followSpeed;
-                particle.y += (targetY - particle.y) * followSpeed;
-
-                const twinkle = 0.55 + (Math.sin(particle.twinklePhase) + 1) * 0.225;
-                const tangentX = -Math.sin(particle.angle) * orbitX;
-                const tangentY = Math.cos(particle.angle) * orbitY;
-                const tangentLength = Math.hypot(tangentX, tangentY) || 1;
-                const halfDash = particle.dashLength / 2;
-                particleContext.globalAlpha = twinkle;
-                particleContext.strokeStyle = particle.color;
-                particleContext.lineWidth = particle.dashWidth;
-                particleContext.lineCap = 'round';
+                const twinkle = 0.28 + (Math.sin(particle.twinklePhase) + 1) * 0.2;
                 particleContext.beginPath();
-                particleContext.moveTo(
-                    particle.x - (tangentX / tangentLength) * halfDash,
-                    particle.y - (tangentY / tangentLength) * halfDash
-                );
-                particleContext.lineTo(
-                    particle.x + (tangentX / tangentLength) * halfDash,
-                    particle.y + (tangentY / tangentLength) * halfDash
-                );
-                particleContext.stroke();
+                particleContext.arc(particle.x, particle.y, particle.radius, 0, Math.PI * 2);
+                particleContext.fillStyle = `rgba(${particle.color}, ${twinkle})`;
+                particleContext.fill();
             }
-            particleContext.globalAlpha = 1;
-        }
-
-        function getMaximumOrbitBand(angle, cardBounds) {
-            const centerX = cardBounds.left + cardBounds.width / 2;
-            const centerY = cardBounds.top + cardBounds.height / 2;
-            const cos = Math.cos(angle);
-            const sin = Math.sin(angle);
-            const margin = 14;
-            const limits = [];
-
-            if (cos > 0.001) limits.push((window.innerWidth - margin - centerX) / cos - cardBounds.width / 2);
-            if (cos < -0.001) limits.push((centerX - margin) / -cos - cardBounds.width / 2);
-            if (sin > 0.001) limits.push((window.innerHeight - margin - centerY) / sin - cardBounds.height / 2);
-            if (sin < -0.001) limits.push((centerY - margin) / -sin - cardBounds.height / 2);
-
-            return Math.max(16, Math.min(...limits));
         }
 
         function animateParticles() {
@@ -244,16 +400,6 @@
         }
 
         window.addEventListener('resize', resizeParticleCanvas);
-        document.addEventListener('pointermove', event => {
-            if (event.pointerType === 'touch') return;
-            pointer.x = event.clientX;
-            pointer.y = event.clientY;
-            pointer.active = true;
-            if (reducedMotion) drawParticles(false);
-        });
-        document.addEventListener('pointerleave', () => {
-            pointer.active = false;
-        });
         resizeParticleCanvas();
 
         document.getElementById('loginForm').addEventListener('submit', async (e) => {
@@ -267,6 +413,7 @@
             alertBox.classList.add('hidden');
             btnLogin.disabled = true;
             btnLogin.textContent = 'Memproses...';
+            let redirecting = false;
 
             try {
                 const response = await fetch(`${API_URL}/login`, {
@@ -282,8 +429,16 @@
                     localStorage.setItem('token', data.token);
                     localStorage.setItem('user', JSON.stringify(data.user));
 
-                    // Pindah ke halaman dashboard
-                    window.location.href = '/dashboard.html';
+                    const splash = document.getElementById('loginSplash');
+                    const splashTitle = document.getElementById('loginSplashTitle');
+                    splashTitle.textContent = `Selamat datang, ${data.user?.nama || usernameInput}`;
+                    splash.setAttribute('aria-hidden', 'false');
+                    splash.classList.add('is-visible');
+                    redirecting = true;
+                    window.setTimeout(
+                        () => window.location.assign('/dashboard.html'),
+                        reducedMotion ? 700 : 1600
+                    );
                 } else {
                     alertBox.textContent = data.error || data.message || 'Login gagal! Periksa kembali akun Anda.';
                     alertBox.classList.remove('hidden');
@@ -292,8 +447,10 @@
                 alertBox.textContent = 'Gagal terhubung ke server backend Express!';
                 alertBox.classList.remove('hidden');
             } finally {
-                btnLogin.disabled = false;
-                btnLogin.textContent = 'Masuk';
+                if (!redirecting) {
+                    btnLogin.disabled = false;
+                    btnLogin.textContent = 'Masuk';
+                }
             }
         });
     </script>
