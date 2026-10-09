@@ -1,0 +1,22 @@
+name = "nando-custom"
+main = "src/index.mjs"
+compatibility_date = "2024-09-23"
+compatibility_flags = ["nodejs_compat"]
+
+[assets]
+directory = "./public"
+binding = "ASSETS"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "nando-custom-db"
+database_id = "f4de7a3b-bfc3-46e1-a36d-ac014b9b834b"
+migrations_dir = "migrations"
+
+[[durable_objects.bindings]]
+name = "API"
+class_name = "ApiCoordinator"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["ApiCoordinator"]

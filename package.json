@@ -4,8 +4,12 @@
   "description": "",
   "main": "app.js",
   "scripts": {
-    "test": "npm run test:custom-tools",
+    "test": "npm run test:all",
+    "test:all": "node --test \"CUSTOM TOOLS/web/operations.test.mjs\" src/*.test.mjs scripts/*.test.mjs",
     "dev": "nodemon app.js",
+    "dev:worker": "wrangler dev",
+    "d1:migrate:local": "wrangler d1 migrations apply nando-custom-db --local",
+    "d1:import:local": "node scripts/import-mysql-dump.mjs",
     "start": "node app.js",
     "build:custom-tools": "vite build --config \"CUSTOM TOOLS/vite.config.mjs\"",
     "test:custom-tools": "node --test \"CUSTOM TOOLS/web/operations.test.mjs\"",
@@ -16,6 +20,9 @@
   "author": "",
   "license": "ISC",
   "type": "commonjs",
+  "engines": {
+    "node": ">=22.0.0"
+  },
   "dependencies": {
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.6",
@@ -34,6 +41,12 @@
   "devDependencies": {
     "nodemon": "^3.1.14",
     "tailwindcss": "^3.4.19",
-    "vite": "^7.1.12"
+    "vite": "^7.1.12",
+    "wrangler": "^4.0.0"
+  },
+  "overrides": {
+    "miniflare": {
+      "sharp": "^0.35.5"
+    }
   }
 }

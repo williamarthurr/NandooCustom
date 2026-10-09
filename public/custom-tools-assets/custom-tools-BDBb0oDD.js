@@ -20,7 +20,7 @@ const __vite__mapDeps=(i,m=__vite__mapDeps,d=(m.f||(m.f=["custom-tools-assets/xl
                 <div class="support-card">
                     <strong>Tech Support</strong>
                     <a href="tel:+6281388183368">WA: 0813-8818-3368</a>
-                    <a href="mailto:itfernando0@gmail.com">email: itfernando0@gmail.com</a>
+                    <a href="mailto:itfernandoo@gmail.com">email: itfernandoo@gmail.com</a>
                 </div>
             </footer>
         </div>

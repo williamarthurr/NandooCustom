@@ -122,6 +122,40 @@
             font-size: 18px;
         }
 
+        .portal-support {
+            position: fixed;
+            right: 18px;
+            bottom: 18px;
+            z-index: 1;
+            padding: 12px 16px;
+            border: 1px solid rgba(59, 130, 246, 0.22);
+            border-radius: 12px;
+            background: rgba(15, 23, 42, 0.88);
+            box-shadow: 0 12px 32px rgba(0, 0, 0, 0.24);
+            color: #aebbd0;
+            font-size: 12px;
+            line-height: 1.7;
+            backdrop-filter: blur(12px);
+        }
+
+        .portal-support strong {
+            display: block;
+            margin-bottom: 2px;
+            color: #93c5fd;
+            font-size: 13px;
+        }
+
+        .portal-support a {
+            color: inherit;
+            text-decoration: none;
+        }
+
+        .portal-support a:hover,
+        .portal-support a:focus-visible {
+            color: #bfdbfe;
+            text-decoration: underline;
+        }
+
         .splash {
             position: fixed;
             inset: 0;
@@ -206,6 +240,15 @@
             .app-card { min-height: 150px; }
         }
 
+        @media (max-width: 560px) {
+            .portal-support {
+                right: 12px;
+                bottom: 12px;
+                padding: 9px 12px;
+                font-size: 11px;
+            }
+        }
+
         @media (prefers-reduced-motion: reduce) {
             *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
         }
@@ -228,6 +271,11 @@
             </a>
         </nav>
     </main>
+    <aside class="portal-support" aria-label="Informasi Tech Support">
+        <strong>Tech Support</strong>
+        <div>WA: <a href="https://wa.me/6281388183368" target="_blank" rel="noopener noreferrer">0813-8818-3368</a></div>
+        <div>Email: <a href="mailto:itfernandoo@gmail.com">itfernandoo@gmail.com</a></div>
+    </aside>
     <div class="splash" id="appSplash" role="status" aria-live="polite" aria-label="Menyiapkan aplikasi" hidden>
         <div class="splash-content">
             <span class="splash-icon" id="splashIcon" aria-hidden="true"></span>
@@ -245,6 +293,11 @@
         let launchTimer;
         let stars = [];
         let frame;
+        const orbitingBodies = [
+            { radiusX: 1.12, radiusY: 1.12, tilt: -0.16, speed: 0.0024, angle: 0.8, size: 3, color: '#93c5fd' },
+            { radiusX: 1.28, radiusY: 1.27, tilt: 0.2, speed: -0.0018, angle: 3.4, size: 4, color: '#c4b5fd' },
+            { radiusX: 1.44, radiusY: 1.42, tilt: -0.32, speed: 0.0028, angle: 5.2, size: 2.5, color: '#67e8f9' }
+        ];
 
         document.querySelectorAll('.app-card').forEach((card) => {
             card.addEventListener('click', (event) => {
@@ -289,6 +342,47 @@
                 context.beginPath();
                 context.arc(star.x, star.y, star.radius, 0, Math.PI * 2);
                 context.fillStyle = `rgba(191, 219, 254, ${0.25 + (Math.sin(star.phase) + 1) * 0.2})`;
+                context.fill();
+            }
+            drawOrbits(animate);
+        }
+
+        function drawOrbits(animate) {
+            const portalBounds = document.querySelector('.portal').getBoundingClientRect();
+            const centerX = portalBounds.left + portalBounds.width / 2;
+            const centerY = portalBounds.top + portalBounds.height / 2;
+            const baseRadiusX = portalBounds.width / 2;
+            const baseRadiusY = portalBounds.height / 2;
+
+            for (const body of orbitingBodies) {
+                if (animate) body.angle += body.speed;
+
+                const radiusX = Math.min(baseRadiusX * body.radiusX, window.innerWidth * 0.78);
+                const radiusY = Math.min(baseRadiusY * body.radiusY, window.innerHeight * 0.78);
+                const cosine = Math.cos(body.tilt);
+                const sine = Math.sin(body.tilt);
+                const orbitX = Math.cos(body.angle) * radiusX;
+                const orbitY = Math.sin(body.angle) * radiusY;
+                const x = centerX + orbitX * cosine - orbitY * sine;
+                const y = centerY + orbitX * sine + orbitY * cosine;
+
+                context.beginPath();
+                context.ellipse(centerX, centerY, radiusX, radiusY, body.tilt, 0, Math.PI * 2);
+                context.strokeStyle = 'rgba(147, 197, 253, 0.08)';
+                context.lineWidth = 1;
+                context.stroke();
+
+                const glow = context.createRadialGradient(x, y, 0, x, y, body.size * 4);
+                glow.addColorStop(0, body.color);
+                glow.addColorStop(0.22, `${body.color}99`);
+                glow.addColorStop(1, `${body.color}00`);
+                context.beginPath();
+                context.arc(x, y, body.size * 4, 0, Math.PI * 2);
+                context.fillStyle = glow;
+                context.fill();
+                context.beginPath();
+                context.arc(x, y, body.size, 0, Math.PI * 2);
+                context.fillStyle = body.color;
                 context.fill();
             }
         }
